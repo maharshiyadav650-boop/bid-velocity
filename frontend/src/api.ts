@@ -1,7 +1,10 @@
 import axios, { AxiosError } from 'axios'
 import type { Auction, AuthResponse, Bid, Payment, Paged, User } from './types'
 
-export const API_BASE = import.meta.env.VITE_API_BASE || (import.meta.env.DEV ? '' : 'https://bidvelocity-backend.onrender.com')
+const rawBase = (import.meta.env.VITE_API_BASE || '').trim()
+export const API_BASE = (rawBase && !rawBase.includes('trycloudflare'))
+  ? rawBase
+  : (import.meta.env.DEV ? '' : 'https://bidvelocity-backend.onrender.com')
 
 const http = axios.create({ baseURL: API_BASE, headers: { 'Content-Type': 'application/json' } })
 http.interceptors.request.use((cfg) => {
