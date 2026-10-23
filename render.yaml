@@ -1,0 +1,45 @@
+services:
+  - type: web
+    name: bidvelocity-backend
+    runtime: docker
+    plan: starter
+    region: oregon
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_ACCESS_MINUTES
+        value: "120"
+      - key: JWT_REFRESH_DAYS
+        value: "14"
+      - key: FRONTEND_URL
+        value: https://bidvelocity.vercel.app
+      - key: GATEWAY_ALLOWED_ORIGINS
+        value: https://bidvelocity.vercel.app,http://localhost:5173
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: DB_HOST
+        fromDatabase:
+          name: bidvelocity-postgres
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: bidvelocity-postgres
+          property: port
+      - key: DB_USERNAME
+        fromDatabase:
+          name: bidvelocity-postgres
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: bidvelocity-postgres
+          property: password
+
+databases:
+  - name: bidvelocity-postgres
+    databaseName: bidvelocity
+    user: bvadmin
+    plan: free
+    region: oregon
