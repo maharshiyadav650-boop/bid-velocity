@@ -51,3 +51,4 @@ only in the auth-service environment.
 
 `.github/workflows/ci.yml`: JDK 21 + Maven build/test for all modules, Node build for
 the frontend, dependency audit (report-only). No deploy credentials required.
+

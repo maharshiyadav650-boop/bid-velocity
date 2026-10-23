@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Client } from '@stomp/stompjs'
 
+import { API_BASE } from './api'
+
 /**
  * Live auction feed over WebSocket/STOMP via the gateway (/ws). Falls back to
  * REST polling automatically if the socket can't connect, so the room always
@@ -11,7 +13,7 @@ export function useAuctionSocket(auctionId: number, onEvent: (e: Record<string, 
   const cb = useRef(onEvent); cb.current = onEvent
 
   useEffect(() => {
-    const base = import.meta.env.VITE_API_BASE as string | undefined
+    const base = API_BASE
     const wsBase = base && /^https?:\/\//.test(base)
       ? (base.replace(/^http/, 'ws').replace(/\/$/, ''))
       : `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}`

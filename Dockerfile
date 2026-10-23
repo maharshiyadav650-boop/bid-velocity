@@ -24,18 +24,17 @@ RUN mvn clean package -DskipTests -B
 FROM eclipse-temurin:21-jre-jammy
 WORKDIR /app
 
-# Install curl for health checking
-RUN apt-get update && apt-get install -y --no-install-recommends curl netcat && rm -rf /var/lib/apt/lists/*
+# Install curl, nginx, gettext-base (for envsubst)
+RUN apt-get update && apt-get install -y --no-install-recommends curl netcat nginx gettext-base && rm -rf /var/lib/apt/lists/*
 
 # Copy built JAR artifacts from build stage
-COPY --from=build /workspace/services/eureka-server/target/*.jar /app/eureka-server.jar
-COPY --from=build /workspace/services/api-gateway/target/*.jar /app/api-gateway.jar
 COPY --from=build /workspace/services/auth-service/target/*.jar /app/auth-service.jar
 COPY --from=build /workspace/services/auction-service/target/*.jar /app/auction-service.jar
 COPY --from=build /workspace/services/bidding-service/target/*.jar /app/bidding-service.jar
 COPY --from=build /workspace/services/payment-service/target/*.jar /app/payment-service.jar
 
-# Copy and set executable permissions on start script
+# Copy Nginx template and startup script
+COPY nginx.conf.template /app/nginx.conf.template
 COPY start.sh /app/start.sh
 RUN chmod +x /app/start.sh
 
