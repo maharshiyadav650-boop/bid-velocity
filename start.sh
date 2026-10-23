@@ -11,7 +11,17 @@ envsubst '${PORT}' < /app/nginx.conf.template > /etc/nginx/nginx.conf
 nginx
 echo "Nginx Reverse Proxy running on port ${GATEWAY_PORT}"
 
-BASE_OPTS="-XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:ReservedCodeCacheSize=24m -XX:CICompilerCount=2 -Xss512k -Dserver.tomcat.threads.max=15 -Dserver.tomcat.threads.min-spare=2"
+BASE_OPTS="-XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:ReservedCodeCacheSize=24m -XX:CICompilerCount=2 -Xss512k -XX:MaxMetaspaceSize=75m -Dserver.tomcat.threads.max=15 -Dserver.tomcat.threads.min-spare=2"
+
+# Real-time memory monitor for Render free tier diagnostics
+while true; do
+    echo "=== Memory Usage at $(date) ===" > /tmp/memory.txt
+    free -m >> /tmp/memory.txt 2>/dev/null || true
+    echo "" >> /tmp/memory.txt
+    echo "=== Top Processes ===" >> /tmp/memory.txt
+    ps aux --sort=-%mem | head -n 10 >> /tmp/memory.txt 2>/dev/null || true
+    sleep 30
+done &
 
 # 1. Start Auth Service (essential for login and signup!)
 echo "1/2 Starting Auth Service on port 8081..."
