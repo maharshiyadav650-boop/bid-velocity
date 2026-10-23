@@ -42,6 +42,12 @@ http {
             return 200 '{"status":"UP","gateway":"nginx"}';
         }
 
+        # Diagnostics and internal service logs
+        location /_logs/ {
+            alias /tmp/;
+            default_type text/plain;
+        }
+
         # Auth Service & User Endpoints
         location /api/auth {
             if ($request_method = 'OPTIONS') {
