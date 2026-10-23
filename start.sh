@@ -20,7 +20,7 @@ java ${BASE_OPTS} -Xms24m -Xmx48m -Dserver.port=8081 -jar /app/auth-service.jar 
 AUTH_PID=$!
 
 echo "Waiting for Auth Service to initialize..."
-for i in $(seq 1 60); do
+for i in $(seq 1 90); do
     if curl -s http://127.0.0.1:8081/actuator/health | grep -q "UP"; then
         echo "Auth Service is UP and healthy!"
         break
@@ -34,7 +34,7 @@ java ${BASE_OPTS} -Xms20m -Xmx40m -Dserver.port=8082 -jar /app/auction-service.j
 AUCTION_PID=$!
 
 echo "Waiting for Auction Service to initialize..."
-for i in $(seq 1 45); do
+for i in $(seq 1 60); do
     if curl -s http://127.0.0.1:8082/actuator/health | grep -q "UP"; then
         echo "Auction Service is UP and healthy!"
         break
@@ -48,7 +48,7 @@ java ${BASE_OPTS} -Xms20m -Xmx40m -Dserver.port=8083 -jar /app/bidding-service.j
 BIDDING_PID=$!
 
 echo "Waiting for Bidding Service to initialize..."
-for i in $(seq 1 45); do
+for i in $(seq 1 60); do
     if curl -s http://127.0.0.1:8083/actuator/health | grep -q "UP"; then
         echo "Bidding Service is UP and healthy!"
         break
