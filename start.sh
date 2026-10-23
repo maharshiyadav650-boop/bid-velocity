@@ -11,7 +11,7 @@ envsubst '${PORT}' < /app/nginx.conf.template > /etc/nginx/nginx.conf
 nginx
 echo "Nginx Reverse Proxy running on port ${GATEWAY_PORT}"
 
-BASE_OPTS="-XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:ReservedCodeCacheSize=24m -XX:CICompilerCount=2 -Xss512k -XX:MaxMetaspaceSize=75m -Dserver.tomcat.threads.max=15 -Dserver.tomcat.threads.min-spare=2"
+BASE_OPTS="-XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:ReservedCodeCacheSize=28m -XX:CICompilerCount=2 -Xss512k -XX:MaxMetaspaceSize=115m -Dserver.tomcat.threads.max=15 -Dserver.tomcat.threads.min-spare=2"
 
 # Real-time memory monitor for Render free tier diagnostics
 while true; do
