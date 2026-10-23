@@ -11,6 +11,7 @@ import MyBids from './pages/MyBids'
 import Payments from './pages/Payments'
 import Seller from './pages/Seller'
 import Admin from './pages/Admin'
+import AuthCallback from './pages/AuthCallback'
 
 const nav = 'px-3 py-2 rounded-lg text-sm font-semibold text-slate-400 hover:text-white hover:bg-slate-800/60'
 
@@ -63,6 +64,7 @@ export default function App() {
           <Route path="/payments" element={<Payments />} />
           <Route path="/seller" element={<Seller />} />
           <Route path="/admin" element={<Admin />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="*" element={<div className="max-w-6xl mx-auto p-16 text-center"><h1 className="text-6xl font-extrabold">404</h1><p className="text-slate-400 mt-2">No route: this page lives in no registered service.</p><Link to="/" className="text-acc font-bold">← Back to the arena</Link></div>} />
         </Routes>
       )}

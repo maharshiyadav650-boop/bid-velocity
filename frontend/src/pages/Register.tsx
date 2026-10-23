@@ -6,6 +6,7 @@ import { GoogleButton, GoogleDivider } from './Login'
 export default function Register() {
   const [f, setF] = useState({ firstName: '', lastName: '', email: '', password: '', confirm: '', role: 'USER', terms: false })
   const [err, setErr] = useState('')
+  const [busy, setBusy] = useState(false)
   const { register } = useAuth()
   const navigate = useNavigate()
   const up = (k: string, v: string | boolean) => setF(s => ({ ...s, [k]: v }))
@@ -14,8 +15,20 @@ export default function Register() {
     e.preventDefault(); setErr('')
     if (f.password !== f.confirm) return setErr('Passwords do not match')
     if (!f.terms) return setErr('Please accept the terms to continue')
-    try { const u = await register(f); navigate(u.roles.includes('SELLER') ? '/seller' : '/auctions') }
-    catch (ex) { setErr((ex as Error).message) }
+    setBusy(true)
+    try {
+      const u = await register(f)
+      navigate(u.roles.includes('SELLER') ? '/seller' : '/auctions')
+    } catch (ex) {
+      const msg = (ex as Error).message || 'Registration failed'
+      if (msg.toLowerCase().includes('network error')) {
+        setErr('Network Error: Unable to reach backend services. Please ensure the backend gateway and databases are running.')
+      } else {
+        setErr(msg)
+      }
+    } finally {
+      setBusy(false)
+    }
   }
   const field = 'w-full mt-1 bg-slate-800/60 border border-line rounded-xl px-3 py-2.5 outline-none focus:border-acc'
 
@@ -36,7 +49,9 @@ export default function Register() {
             <select className={field} value={f.role} onChange={e => up('role', e.target.value)}><option value="USER">Bid &amp; buy</option><option value="SELLER">Sell auctions</option></select></div>
           <label className="flex items-center gap-2 text-xs text-slate-400"><input type="checkbox" checked={f.terms} onChange={e => up('terms', e.target.checked)} /> I accept the auction terms &amp; fair-bidding policy</label>
           {err && <p className="text-rose-300 text-sm m-0">⛔ {err}</p>}
-          <button className="w-full py-2.5 rounded-xl font-extrabold bg-gradient-to-r from-acc to-acc2 text-ink">CREATE ACCOUNT</button>
+          <button disabled={busy} className="w-full py-2.5 rounded-xl font-extrabold bg-gradient-to-r from-acc to-acc2 text-ink disabled:opacity-50">
+            {busy ? 'Creating account…' : 'CREATE ACCOUNT'}
+          </button>
         </form>
         <GoogleDivider />
         <GoogleButton />

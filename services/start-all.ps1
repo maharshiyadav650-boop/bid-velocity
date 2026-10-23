@@ -1,17 +1,21 @@
 # start-all.ps1
-$servicesDir = "c:\Real-Time Distributed Bidding & Auction Clearance Engine\services"
+$servicesDir = $PSScriptRoot
+$envFile = Join-Path (Split-Path $PSScriptRoot -Parent) ".env"
+if (Test-Path $envFile) {
+    Get-Content $envFile | Where-Object { $_ -match '^\s*([^#=]+)=(.*)$' } | ForEach-Object {
+        $k = $matches[1].Trim()
+        $v = $matches[2].Trim()
+        [System.Environment]::SetEnvironmentVariable($k, $v, "Process")
+    }
+}
 
-Write-Host "Starting microservices..."
+Write-Host "Starting microservices from $servicesDir..."
 Write-Host "Make sure you have Java and Maven installed and in your PATH."
 
-# ==========================================
-# DATABASE CONFIGURATION
-# Update these to match your local PostgreSQL
-# ==========================================
-$env:DB_USERNAME="postgres"
-$env:DB_PASSWORD="postgres # CHANGE THIS to your postgres password
-$env:DB_PORT="5432"
-# ==========================================
+# Database configuration (defaults to .env values if set)
+if (-not $env:DB_USERNAME) { $env:DB_USERNAME = "bvadmin" }
+if (-not $env:DB_PASSWORD) { $env:DB_PASSWORD = "trust-local-no-password" }
+if (-not $env:DB_PORT) { $env:DB_PORT = "5432" }
 
 # 1. Start Eureka Server
 Write-Host "Starting Eureka Server..."
