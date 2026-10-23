@@ -31,9 +31,9 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     ResponseEntity<Map<String, Object>> unexpected(Exception e, HttpServletRequest req) {
-        // never leak stack traces or internals to clients
+        e.printStackTrace();
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(body(500, "INTERNAL_ERROR", "An unexpected error occurred", req));
+                .body(body(500, "INTERNAL_ERROR", e.getClass().getName() + ": " + e.getMessage(), req));
     }
 
     private Map<String, Object> body(int status, String code, String message, HttpServletRequest req) {

@@ -11,11 +11,11 @@ envsubst '${PORT}' < /app/nginx.conf.template > /etc/nginx/nginx.conf
 nginx
 echo "Nginx Reverse Proxy running on port ${GATEWAY_PORT}"
 
-BASE_OPTS="-XX:+UseSerialGC -XX:TieredStopAtLevel=1"
+BASE_OPTS="-XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:ReservedCodeCacheSize=24m -XX:CICompilerCount=2 -Xss512k -Dserver.tomcat.threads.max=15 -Dserver.tomcat.threads.min-spare=2"
 
 # 1. Start Auth Service (essential for login and signup!)
-echo "1/4 Starting Auth Service on port 8081..."
-java ${BASE_OPTS} -Xms24m -Xmx48m -Dserver.port=8081 -jar /app/auth-service.jar > /tmp/auth.log 2>&1 &
+echo "1/3 Starting Auth Service on port 8081..."
+java ${BASE_OPTS} -Xms20m -Xmx40m -Dserver.port=8081 -jar /app/auth-service.jar > /tmp/auth.log 2>&1 &
 AUTH_PID=$!
 
 echo "Waiting for Auth Service to initialize..."
@@ -28,8 +28,8 @@ for i in $(seq 1 45); do
 done
 
 # 2. Start Auction Service
-echo "2/4 Starting Auction Service on port 8082..."
-java ${BASE_OPTS} -Xms24m -Xmx48m -Dserver.port=8082 -jar /app/auction-service.jar > /tmp/auction.log 2>&1 &
+echo "2/3 Starting Auction Service on port 8082..."
+java ${BASE_OPTS} -Xms20m -Xmx40m -Dserver.port=8082 -jar /app/auction-service.jar > /tmp/auction.log 2>&1 &
 AUCTION_PID=$!
 
 echo "Waiting for Auction Service to initialize..."
@@ -42,8 +42,8 @@ for i in $(seq 1 45); do
 done
 
 # 3. Start Bidding Service
-echo "3/4 Starting Bidding Service on port 8083..."
-java ${BASE_OPTS} -Xms16m -Xmx32m -Dserver.port=8083 -jar /app/bidding-service.jar > /tmp/bidding.log 2>&1 &
+echo "3/3 Starting Bidding Service on port 8083..."
+java ${BASE_OPTS} -Xms20m -Xmx40m -Dserver.port=8083 -jar /app/bidding-service.jar > /tmp/bidding.log 2>&1 &
 BIDDING_PID=$!
 
 echo "Waiting for Bidding Service to initialize..."
@@ -55,20 +55,6 @@ for i in $(seq 1 45); do
     sleep 2
 done
 
-# 4. Start Payment Service
-echo "4/4 Starting Payment Service on port 8084..."
-java ${BASE_OPTS} -Xms16m -Xmx32m -Dserver.port=8084 -jar /app/payment-service.jar > /tmp/payment.log 2>&1 &
-PAYMENT_PID=$!
-
-echo "Waiting for Payment Service to initialize..."
-for i in $(seq 1 30); do
-    if curl -s http://127.0.0.1:8084/actuator/health | grep -q "UP"; then
-        echo "Payment Service is UP and healthy!"
-        break
-    fi
-    sleep 2
-done
-
-echo "=== All BidVelocity microservices successfully launched! ==="
+echo "=== All core BidVelocity microservices successfully launched! ==="
 
 wait
