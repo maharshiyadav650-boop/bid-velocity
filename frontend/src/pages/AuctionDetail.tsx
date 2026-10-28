@@ -5,17 +5,8 @@ import { api, money, uuid } from '../api'
 import { useAuth } from '../auth'
 import { useAuctionSocket } from '../useAuctionSocket'
 import { Countdown, statusChip } from './Landing'
+import PriceTrajectoryChart, { cleanBidderName } from '../components/PriceTrajectoryChart'
 import type { Bid } from '../types'
-
-const cleanBidderName = (name?: string) => {
-  if (!name) return 'Bidder'
-  let n = name.trim()
-  if (n.includes('@')) {
-    n = n.split('@')[0]
-  }
-  n = n.replace(/\s*•\d+$/, '')
-  return n.charAt(0).toUpperCase() + n.slice(1)
-}
 
 export default function AuctionDetail() {
   const { id } = useParams()
@@ -69,6 +60,30 @@ export default function AuctionDetail() {
   const topBidderId = bids && bids.length > 0 ? bids[0].bidderId : (a?.highestBidId ? bids?.find(b => b.id === a.highestBidId)?.bidderId : null)
   const iAmTop = !!(user && topBidderId === user.id)
   const recent = useMemo(() => (bids ?? []).slice(0, 12), [bids])
+
+  // Winner and outcome metrics
+  const winningBid = useMemo(() => {
+    if (!bids || !bids.length) return null
+    if (a?.highestBidId) {
+      const found = bids.find(b => b.id === a.highestBidId)
+      if (found) return found
+    }
+    return bids[0]
+  }, [bids, a?.highestBidId])
+
+  const winnerDisplayName = useMemo(() => {
+    if (winningBid) return cleanBidderName(winningBid.bidderName)
+    if (a?.winnerId) {
+      if (user && user.id === a.winnerId) return 'You'
+      return `Buyer #${a.winnerId}`
+    }
+    return 'Top Bidder'
+  }, [winningBid, a?.winnerId, user])
+
+  const startingPrice = Number(a?.startingPrice || 1)
+  const hammerPrice = Number(a?.winningAmount ?? livePrice)
+  const priceGain = Math.max(0, hammerPrice - startingPrice)
+  const priceGainPct = startingPrice > 0 ? ((priceGain / startingPrice) * 100).toFixed(0) : '0'
 
   const heat = useMemo(() => {
     if (!a || !bids?.length) return []
@@ -148,25 +163,63 @@ export default function AuctionDetail() {
         </div>
       )}
 
+      {a.status === 'SOLD' && (
+        <div className="mb-4 rounded-2xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/60 via-panel to-panel px-5 py-3.5 flex flex-wrap items-center justify-between gap-3 text-emerald-200 shadow-xl">
+          <div className="flex items-center gap-3">
+            <span className="text-3xl">🏆</span>
+            <div>
+              <div className="font-black text-sm text-white tracking-wide flex items-center gap-2">
+                <span>AUCTION CONCLUDED — HAMMER HAS FALLEN</span>
+                <span className="text-[10px] uppercase font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  {user?.id === a.winnerId ? 'YOU WON' : 'SOLD'}
+                </span>
+              </div>
+              <div className="text-xs text-slate-300 mt-0.5">
+                Winner: <b className="text-emerald-300">{winnerDisplayName}</b> · Final Hammer Price: <b className="text-white font-extrabold">{money(hammerPrice)}</b> (+{priceGainPct}% appreciation)
+              </div>
+            </div>
+          </div>
+          {user?.id === a.winnerId ? (
+            <Link
+              to="/payments"
+              className="px-5 py-2 rounded-xl font-extrabold text-xs bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 text-slate-950 hover:brightness-110 shadow-lg shadow-emerald-500/25 transition transform active:scale-95"
+            >
+              💳 SETTLE PAYMENT ({money(hammerPrice)}) →
+            </Link>
+          ) : user?.id === a.sellerId ? (
+            <Link
+              to="/payments"
+              className="px-4 py-2 rounded-xl font-bold text-xs border border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10 transition"
+            >
+              View Settlement Invoice →
+            </Link>
+          ) : (
+            <span className="text-xs text-slate-400 border border-slate-700 rounded-lg px-3 py-1.5 bg-slate-800/40">
+              Closed {new Date(a.endTime).toLocaleTimeString()}
+            </span>
+          )}
+        </div>
+      )}
+
       <div className="mb-5 rounded-2xl border border-line bg-panel/60 px-4 py-3 flex flex-wrap items-center gap-x-6 gap-y-2">
         <span className="flex items-center gap-2 font-extrabold text-sm">
-          <span className={`w-2.5 h-2.5 rounded-full ${connected ? 'bg-good led-live' : 'bg-slate-500'}`} />
-          {connected ? 'LIVE' : 'OFFLINE'}
+          <span className={`w-2.5 h-2.5 rounded-full ${a.status === 'SOLD' ? 'bg-emerald-400' : connected ? 'bg-good led-live' : 'bg-slate-500'}`} />
+          {a.status === 'SOLD' ? 'CONCLUDED' : connected ? 'LIVE' : 'OFFLINE'}
         </span>
         <div><div className="text-[10px] text-slate-500 font-bold">BIDS</div><div className="font-extrabold tabular-nums">{liveBidCount}</div></div>
         <div><div className="text-[10px] text-slate-500 font-bold">VELOCITY</div><div className={`font-extrabold tabular-nums ${velocity >= 5 ? 'text-rose-300' : 'text-slate-200'}`}>{velocity}/min {velocity >= 5 ? '🔥' : ''}</div></div>
-        <div><div className="text-[10px] text-slate-500 font-bold">TOP BID</div><div className="font-extrabold tabular-nums glow">{money(livePrice)}</div></div>
+        <div><div className="text-[10px] text-slate-500 font-bold">{a.status === 'SOLD' ? 'HAMMER' : 'TOP BID'}</div><div className="font-extrabold tabular-nums glow">{money(hammerPrice)}</div></div>
         <div className="ml-auto text-right">
-          <div className="text-[10px] text-slate-500 font-bold">TIME LEFT</div>
-          <div className={`text-lg font-extrabold tabular-nums ${a.status === 'ENDING' ? 'text-rose-300 blink-critical' : ''}`}>
-            <Countdown end={a.status === 'SCHEDULED' ? a.startTime : a.endTime} />
+          <div className="text-[10px] text-slate-500 font-bold">{a.status === 'SOLD' ? 'AUCTION RESULT' : 'TIME LEFT'}</div>
+          <div className={`text-lg font-extrabold tabular-nums ${a.status === 'ENDING' ? 'text-rose-300 blink-critical' : a.status === 'SOLD' ? 'text-emerald-400' : ''}`}>
+            {a.status === 'SOLD' ? '🏆 SOLD' : <Countdown end={a.status === 'SCHEDULED' ? a.startTime : a.endTime} />}
           </div>
         </div>
       </div>
 
       <div className="grid lg:grid-cols-[1.1fr_.9fr] gap-5">
         <div className="space-y-5">
-          <div className={`rounded-2xl overflow-hidden border ${a.status === 'ENDING' ? 'border-amber-400/70' : 'border-line'}`}>
+          <div className={`rounded-2xl overflow-hidden border ${a.status === 'ENDING' ? 'border-amber-400/70' : a.status === 'SOLD' ? 'border-emerald-500/40' : 'border-line'}`}>
             <div className="relative h-72 grid place-items-center text-8xl overflow-hidden" style={{ background: 'linear-gradient(135deg,#0ea5e9,#6366f1)' }}>
               {a.emoji}
               {a.imageUrl && (
@@ -192,29 +245,32 @@ export default function AuctionDetail() {
               ))}
             </div>
           </div>
-          <div className="rounded-2xl border border-line bg-panel p-5">
-            <h3 className="text-sm font-bold m-0 mb-2">🔥 Bid intensity (auction lifetime)</h3>
-            <div className="flex gap-1 h-9 items-end">
-              {(heat.length ? heat : Array(14).fill(0)).map((v, i) => (
-                <div key={i} className="flex-1 rounded-sm bg-gradient-to-t from-acc to-acc2" style={{ height: `${Math.max(8, v * 100)}%` }} />
-              ))}
-            </div>
-          </div>
+
+          {/* High-Resolution Dynamic Price Trajectory Graph */}
+          <PriceTrajectoryChart
+            startingPrice={Number(a.startingPrice)}
+            livePrice={hammerPrice}
+            startTime={a.startTime}
+            endTime={a.endTime}
+            status={a.status}
+            bids={bids ?? []}
+          />
         </div>
 
         <div className="space-y-5">
-          <div className={`rounded-2xl border p-5 ${a.status === 'ENDING' ? 'border-amber-400/70 animate-pulse' : 'border-line'} bg-panel`}>
-            <div className="text-xs text-slate-500 font-bold">CURRENT HIGHEST BID</div>
-            <div className={`text-4xl font-extrabold led-pop glow ${a.status === 'ENDING' ? 'text-amber-300' : ''}`} key={livePrice}>
-              {money(livePrice)}
+          <div className={`rounded-2xl border p-5 ${a.status === 'ENDING' ? 'border-amber-400/70 animate-pulse' : a.status === 'SOLD' ? 'border-emerald-500/50 bg-gradient-to-b from-emerald-950/25 via-panel to-panel shadow-lg' : 'border-line'} bg-panel`}>
+            <div className="text-xs text-slate-500 font-bold">{a.status === 'SOLD' ? 'FINAL HAMMER PRICE' : 'CURRENT HIGHEST BID'}</div>
+            <div className={`text-4xl font-extrabold led-pop glow ${a.status === 'ENDING' ? 'text-amber-300' : a.status === 'SOLD' ? 'text-emerald-400' : ''}`} key={hammerPrice}>
+              {money(hammerPrice)}
             </div>
-            {iAmTop && <div className="text-good text-sm font-bold">🫵 You are the top bidder</div>}
+            {iAmTop && a.status !== 'SOLD' && <div className="text-good text-sm font-bold">🫵 You are the top bidder</div>}
             <div className="flex justify-between items-center mt-3">
-              <span className="text-xs text-slate-500 font-bold">{a.status === 'SCHEDULED' ? 'STARTS IN' : 'TIME REMAINING'}</span>
-              <span className="text-2xl font-extrabold tabular-nums"><Countdown end={a.status === 'SCHEDULED' ? a.startTime : a.endTime} /></span>
+              <span className="text-xs text-slate-500 font-bold">{a.status === 'SCHEDULED' ? 'STARTS IN' : a.status === 'SOLD' ? 'CONCLUDED AT' : 'TIME REMAINING'}</span>
+              <span className="text-2xl font-extrabold tabular-nums">
+                {a.status === 'SOLD' ? new Date(a.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : <Countdown end={a.status === 'SCHEDULED' ? a.startTime : a.endTime} />}
+              </span>
             </div>
             {a.status === 'ENDING' && <p className="text-amber-300/90 text-xs mt-2 mb-0">⚡ Under one minute. Anti-sniping may extend the clock.</p>}
-            {a.status === 'SOLD' && <p className="text-good text-sm mt-2 mb-0">🏆 Sold{a.winnerId === user?.id ? ' — YOU WON' : ''} for {money(a.winningAmount ?? livePrice)}. <Link className="underline" to="/payments">Settle →</Link></p>}
             {(a.status === 'UNSOLD' || a.status === 'CANCELLED') && <p className="text-slate-400 text-sm mt-2 mb-0">Closed — {a.closeReason === 'RESERVE_NOT_MET' ? 'reserve not met' : a.closeReason === 'NO_BIDS' ? 'no valid bids' : a.status.toLowerCase()}.</p>}
           </div>
 
@@ -262,6 +318,121 @@ export default function AuctionDetail() {
               <p className="text-[11px] text-slate-500 mt-3 mb-0">
                 💡 Any bid above the current price is valid — even +₹1. Double-clicks can't create two bids (idempotency key).
               </p>
+            </div>
+          ) : a.status === 'SOLD' ? (
+            /* Comprehensive Auction Outcome & Winner Showcase Card */
+            <div className="rounded-2xl border border-emerald-500/40 bg-panel p-5 space-y-4 shadow-xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-36 h-36 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none" />
+              
+              {/* Winner Header Banner */}
+              <div className="flex items-start gap-3.5 pb-4 border-b border-line/60">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-400/20 to-teal-500/10 border border-emerald-500/40 flex items-center justify-center text-2xl shrink-0 shadow-inner">
+                  🏆
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                      {user?.id === a.winnerId ? 'YOU WON THIS AUCTION' : 'WINNER DECLARED'}
+                    </span>
+                    {user?.id === a.winnerId && <span className="text-xs">🎉</span>}
+                  </div>
+                  <h3 className="text-lg font-black text-white m-0 mt-1 truncate">
+                    {user?.id === a.winnerId
+                      ? 'Congratulations! You Won!'
+                      : `Won by ${winnerDisplayName}`}
+                  </h3>
+                  <p className="text-xs text-slate-400 m-0 mt-0.5">
+                    {user?.id === a.winnerId
+                      ? 'Your bid was accepted as the winning offer. Settle payment below to complete purchase.'
+                      : user?.id === a.sellerId
+                        ? `Sold to ${winnerDisplayName} for ${money(hammerPrice)}. Payment invoice generated.`
+                        : `Final hammer price settled at ${money(hammerPrice)}.`}
+                  </p>
+                </div>
+              </div>
+
+              {/* Outcome Metrics Grid */}
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="rounded-xl bg-slate-800/50 p-2.5 border border-line/40">
+                  <div className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Winning Bidder</div>
+                  <div className="font-extrabold text-sm text-emerald-300 truncate mt-0.5">
+                    {user?.id === a.winnerId ? '🫵 You' : `👤 ${winnerDisplayName}`}
+                  </div>
+                </div>
+                <div className="rounded-xl bg-slate-800/50 p-2.5 border border-line/40">
+                  <div className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Hammer Price</div>
+                  <div className="font-extrabold text-sm text-white mt-0.5">
+                    {money(hammerPrice)}
+                  </div>
+                </div>
+                <div className="rounded-xl bg-slate-800/50 p-2.5 border border-line/40">
+                  <div className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Price Surge</div>
+                  <div className="font-extrabold text-sm text-emerald-400 mt-0.5 flex items-center gap-1">
+                    <span>▲</span> +{priceGainPct}%
+                  </div>
+                </div>
+                <div className="rounded-xl bg-slate-800/50 p-2.5 border border-line/40">
+                  <div className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Total Bids</div>
+                  <div className="font-extrabold text-sm text-slate-200 mt-0.5">
+                    {liveBidCount} bids placed
+                  </div>
+                </div>
+                <div className="rounded-xl bg-slate-800/50 p-2.5 border border-line/40">
+                  <div className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Starting Floor</div>
+                  <div className="font-semibold text-slate-300 mt-0.5">
+                    {money(a.startingPrice)}
+                  </div>
+                </div>
+                <div className="rounded-xl bg-slate-800/50 p-2.5 border border-line/40">
+                  <div className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Closed At</div>
+                  <div className="font-semibold text-slate-300 mt-0.5">
+                    {new Date(a.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              {user?.id === a.winnerId ? (
+                <Link
+                  to="/payments"
+                  className="w-full block text-center py-3 px-4 rounded-xl font-extrabold bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 text-slate-950 hover:brightness-110 shadow-lg shadow-emerald-500/20 transition transform active:scale-[0.98] text-sm"
+                >
+                  💳 PROCEED TO PAYMENT ({money(hammerPrice)}) →
+                </Link>
+              ) : user?.id === a.sellerId ? (
+                <Link
+                  to="/payments"
+                  className="w-full block text-center py-2.5 px-4 rounded-xl font-bold border border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/10 transition text-xs"
+                >
+                  View Settlement Invoice Status →
+                </Link>
+              ) : (
+                <div className="text-center py-1.5 text-xs text-slate-400 border-t border-line/40 pt-2.5">
+                  🏁 Bidding closed · Item awarded to top bidder
+                </div>
+              )}
+            </div>
+          ) : (a.status === 'UNSOLD' || a.status === 'CANCELLED') ? (
+            <div className="rounded-2xl border border-line bg-panel p-5 space-y-3">
+              <div className="flex items-center gap-2.5 text-rose-300">
+                <span className="text-2xl">⛔</span>
+                <div>
+                  <h3 className="font-bold text-sm text-white m-0">Auction Closed Without Sale</h3>
+                  <p className="text-xs text-slate-400 m-0">
+                    {a.closeReason === 'RESERVE_NOT_MET'
+                      ? `Reserve price of ${money(a.reservePrice)} was not reached.`
+                      : 'No qualifying bids were placed before the auction deadline.'}
+                  </p>
+                </div>
+              </div>
+              {user?.id === a.sellerId && (
+                <Link
+                  to="/sell"
+                  className="w-full block text-center py-2 px-3 rounded-xl font-bold text-xs border border-line text-slate-300 hover:border-acc hover:text-white"
+                >
+                  Relist Item in Seller Studio →
+                </Link>
+              )}
             </div>
           ) : !user && (
             <div className="rounded-2xl border border-line bg-panel p-5 text-sm text-slate-400">
