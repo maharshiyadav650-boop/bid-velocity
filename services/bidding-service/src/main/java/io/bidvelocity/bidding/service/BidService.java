@@ -150,10 +150,11 @@ public class BidService {
 
         // 5. after commit: push real-time event + best-effort projection sync
         afterCommit(() -> {
+            String displayName = anonymize(bidderName, bidderId);
             ws.convertAndSend("/topic/auction/" + auctionId, Map.of(
                     "event", ext ? "BID_ACCEPTED_EXTENDED" : "BID_ACCEPTED",
                     "auctionId", auctionId, "bidId", highestId, "bidderId", bidderId,
-                    "bidderName", bidderName, "amount", amount.toPlainString(),
+                    "bidderName", displayName, "amount", amount.toPlainString(),
                     "minNext", minNext.toPlainString(), "endTime", endTime.toString(),
                     "extensionCount", extCount));
             if (previousTopBidder != null && !previousTopBidder.equals(bidderId)) {
@@ -243,8 +244,14 @@ public class BidService {
                 b.getAmount(), b.getStatus(), b.getRejectReason(), b.getAcceptedAt());
     }
 
-    /** feed privacy: first name + id tail, never the account email */
+    /** feed privacy: user display name or username, never the account email */
     static String anonymize(String name, Long id) {
-        return name == null ? "Bidder" : name.split(" ")[0] + " •" + (id % 100);
+        if (name == null || name.isBlank()) return "Bidder";
+        String clean = name.trim();
+        if (clean.contains("@")) {
+            clean = clean.split("@")[0];
+        }
+        clean = clean.split(" ")[0];
+        return clean.isEmpty() ? "Bidder" : Character.toUpperCase(clean.charAt(0)) + clean.substring(1);
     }
 }

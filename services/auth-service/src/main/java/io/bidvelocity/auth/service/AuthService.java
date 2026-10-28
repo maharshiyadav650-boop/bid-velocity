@@ -181,7 +181,10 @@ public class AuthService {
     }
 
     private JwtService.User toJwtUser(User u) {
-        return new JwtService.User(u.getId(), u.getEmail(), u.getRoles().stream().map(Role::getName).sorted().toList());
+        String name = (u.getFirstName() != null ? u.getFirstName() : "") +
+                (u.getLastName() != null && !u.getLastName().isBlank() ? " " + u.getLastName() : "");
+        if (name.isBlank()) name = u.getEmail().contains("@") ? u.getEmail().split("@")[0] : u.getEmail();
+        return new JwtService.User(u.getId(), u.getEmail(), name.trim(), u.getRoles().stream().map(Role::getName).sorted().toList());
     }
 
     public static UserDto toDto(User u) {

@@ -7,6 +7,16 @@ import { useAuctionSocket } from '../useAuctionSocket'
 import { Countdown, statusChip } from './Landing'
 import type { Bid } from '../types'
 
+const cleanBidderName = (name?: string) => {
+  if (!name) return 'Bidder'
+  let n = name.trim()
+  if (n.includes('@')) {
+    n = n.split('@')[0]
+  }
+  n = n.replace(/\s*•\d+$/, '')
+  return n.charAt(0).toUpperCase() + n.slice(1)
+}
+
 export default function AuctionDetail() {
   const { id } = useParams()
   const aid = Number(id)
@@ -16,7 +26,7 @@ export default function AuctionDetail() {
 
   const connected = useAuctionSocket(aid, (e) => {
     if (e.event?.startsWith('BID_ACCEPTED')) {
-      setToast({ msg: `⚡ ${e.bidderName} bid ${money(e.amount)}${e.event === 'BID_ACCEPTED_EXTENDED' ? ' — clock extended! ⏱' : ''}`, kind: 'ok' })
+      setToast({ msg: `⚡ ${cleanBidderName(e.bidderName)} bid ${money(e.amount)}${e.event === 'BID_ACCEPTED_EXTENDED' ? ' — clock extended! ⏱' : ''}`, kind: 'ok' })
       qc.invalidateQueries({ queryKey: ['auction', aid] })
       qc.invalidateQueries({ queryKey: ['bids', aid] })
     }
@@ -44,11 +54,16 @@ export default function AuctionDetail() {
 
   const [amount, setAmount] = useState<string>('')
   useEffect(() => {
-    if (livePrice > 0) {
-      const step = Number(a?.minIncrement) || 100
-      setAmount(String(livePrice + step))
+    if (minNext > 0) {
+      setAmount(prev => {
+        const val = Number(prev)
+        if (!val || val < minNext) {
+          return String(minNext)
+        }
+        return prev
+      })
     }
-  }, [a?.id, livePrice, a?.minIncrement])
+  }, [a?.id, minNext])
 
   const open = a && (a.status === 'LIVE' || a.status === 'ENDING')
   const topBidderId = bids && bids.length > 0 ? bids[0].bidderId : (a?.highestBidId ? bids?.find(b => b.id === a.highestBidId)?.bidderId : null)
@@ -166,9 +181,9 @@ export default function AuctionDetail() {
             <div className="grid grid-cols-2 gap-2 mt-4 text-xs">
               {[
                 ['Starting price', money(a.startingPrice)],
-                ['Min increment', money(a.minIncrement)],
                 ['Reserve', a.reservePrice ? money(a.reservePrice) : 'none'],
-                ['Bids', String(liveBidCount)]
+                ['Bids', String(liveBidCount)],
+                ['Status', a.status]
               ].map(([k, v]) => (
                 <div key={k} className="rounded-lg bg-slate-800/40 p-2.5">
                   <div className="text-slate-500">{k}</div>
@@ -221,18 +236,18 @@ export default function AuctionDetail() {
                 {[1, 10, 100].map(d => (
                   <button
                     key={d}
-                    onClick={() => setAmount(String(livePrice + d))}
+                    onClick={() => {
+                      setAmount(prev => {
+                        const current = Number(prev)
+                        const base = (current && current >= livePrice) ? current : livePrice
+                        return String(base + d)
+                      })
+                    }}
                     className="px-3 py-1.5 rounded-lg text-xs font-bold border border-line text-slate-300 hover:border-acc hover:text-white hover-lift"
                   >
                     + {money(d)}
                   </button>
                 ))}
-                <button
-                  onClick={() => setAmount(String(livePrice + Number(a.minIncrement || 100)))}
-                  className="px-3 py-1.5 rounded-lg text-xs font-bold border border-line text-slate-300 hover:border-acc hover:text-white hover-lift"
-                >
-                  + {money(a.minIncrement || 100)} step
-                </button>
               </div>
               <div className="grid grid-cols-2 gap-2 mt-3 text-xs">
                 <div className="rounded-lg bg-slate-800/40 p-2.5">
@@ -263,7 +278,7 @@ export default function AuctionDetail() {
               >
                 <span>
                   {b.bidderId === user?.id ? '🫵 ' : ''}
-                  {b.bidderName}{' '}
+                  {cleanBidderName(b.bidderName)}{' '}
                   <span className="text-slate-600 text-xs">· {new Date(b.at).toLocaleTimeString()}</span>
                 </span>
                 <b className="tabular-nums">{money(b.amount)}</b>

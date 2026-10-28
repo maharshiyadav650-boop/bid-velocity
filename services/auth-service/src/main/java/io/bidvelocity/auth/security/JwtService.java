@@ -36,6 +36,7 @@ public class JwtService {
         return Jwts.builder()
                 .subject(String.valueOf(u.id()))
                 .claim("email", u.email())
+                .claim("name", u.name())
                 .claim("roles", u.roles())
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plus(accessTtl)))
@@ -55,5 +56,9 @@ public class JwtService {
     public long accessTtlSeconds() { return accessTtl.toSeconds(); }
 
     /** minimal user view for token issuance — avoids leaking entities into the JWT layer */
-    public record User(long id, String email, List<String> roles) {}
+    public record User(long id, String email, String name, List<String> roles) {
+        public User(long id, String email, List<String> roles) {
+            this(id, email, email != null && email.contains("@") ? email.split("@")[0] : email, roles);
+        }
+    }
 }

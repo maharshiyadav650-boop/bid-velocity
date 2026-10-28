@@ -27,12 +27,20 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             if (c != null) {
                 List<String> roles = JwtService.roles(c);
                 var authorities = (roles == null ? List.<String>of() : roles).stream().map(SimpleGrantedAuthority::new).toList();
+                String email = String.valueOf(c.get("email"));
+                String name = c.get("name") != null && !String.valueOf(c.get("name")).isBlank()
+                        ? String.valueOf(c.get("name"))
+                        : (email != null && email.contains("@") ? email.split("@")[0] : email);
                 SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
-                        new AuthPrincipal(Long.parseLong(c.getSubject()), String.valueOf(c.get("email")), roles == null ? List.of() : roles),
+                        new AuthPrincipal(Long.parseLong(c.getSubject()), email, name, roles == null ? List.of() : roles),
                         header, authorities));
             }
         }
         chain.doFilter(req, res);
     }
-    public record AuthPrincipal(long id, String email, List<String> roles) {}
+    public record AuthPrincipal(long id, String email, String name, List<String> roles) {
+        public AuthPrincipal(long id, String email, List<String> roles) {
+            this(id, email, email != null && email.contains("@") ? email.split("@")[0] : email, roles);
+        }
+    }
 }

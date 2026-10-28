@@ -23,7 +23,7 @@ public class BidController {
     @PreAuthorize("hasAnyAuthority('USER','SELLER')")
     public BidService.Accepted place(@AuthenticationPrincipal AuthPrincipal p, @Valid @RequestBody PlaceBidRequest r) {
         throttle.check(p.id(), r.auctionId());   // per-user bid throttling (hot-path guard)
-        return service.place(r.auctionId(), p.id(), p.email(), p.roles(), r.amount(), r.idempotencyKey());
+        return service.place(r.auctionId(), p.id(), p.name(), p.roles(), r.amount(), r.idempotencyKey());
     }
 
     @GetMapping("/auction/{auctionId}")
