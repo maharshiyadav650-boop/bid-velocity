@@ -64,12 +64,27 @@ export default function AuctionDetail() {
   // Winner and outcome metrics
   const winningBid = useMemo(() => {
     if (!bids || !bids.length) return null
+    if (a?.winningAmount) {
+      const matchByAmount = bids.find(b => Number(b.amount) === Number(a.winningAmount))
+      if (matchByAmount) return matchByAmount
+    }
+    if (a?.winnerId) {
+      const matchByWinner = bids.find(b => b.bidderId === a.winnerId)
+      if (matchByWinner) return matchByWinner
+    }
     if (a?.highestBidId) {
       const found = bids.find(b => b.id === a.highestBidId)
       if (found) return found
     }
     return bids[0]
-  }, [bids, a?.highestBidId])
+  }, [bids, a?.winningAmount, a?.winnerId, a?.highestBidId])
+
+  const myHighestBid = useMemo(() => {
+    if (!user || !bids || !bids.length) return null
+    const myBids = bids.filter(b => b.bidderId === user.id)
+    if (!myBids.length) return null
+    return Math.max(...myBids.map(b => Number(b.amount)))
+  }, [user, bids])
 
   const winnerDisplayName = useMemo(() => {
     if (winningBid) return cleanBidderName(winningBid.bidderName)
@@ -234,13 +249,13 @@ export default function AuctionDetail() {
             <div className="grid grid-cols-2 gap-2 mt-4 text-xs">
               {[
                 ['Starting price', money(a.startingPrice)],
-                ['Reserve', a.reservePrice ? money(a.reservePrice) : 'none'],
+                a.status === 'SOLD' ? ['Winning bidder', winnerDisplayName] : ['Reserve', a.reservePrice ? money(a.reservePrice) : 'none'],
                 ['Bids', String(liveBidCount)],
                 ['Status', a.status]
               ].map(([k, v]) => (
                 <div key={k} className="rounded-lg bg-slate-800/40 p-2.5">
                   <div className="text-slate-500">{k}</div>
-                  <div className="font-bold text-sm">{v}</div>
+                  <div className={`font-bold text-sm ${k === 'Winning bidder' ? 'text-emerald-300' : ''}`}>{v}</div>
                 </div>
               ))}
             </div>
@@ -271,6 +286,14 @@ export default function AuctionDetail() {
               </span>
             </div>
             {a.status === 'ENDING' && <p className="text-amber-300/90 text-xs mt-2 mb-0">⚡ Under one minute. Anti-sniping may extend the clock.</p>}
+            {a.status === 'SOLD' && (
+              <div className="mt-3 pt-3 border-t border-line/60 flex items-center justify-between text-xs">
+                <span className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">Winning Bidder:</span>
+                <span className="font-extrabold text-emerald-300 flex items-center gap-1 text-sm">
+                  <span>👑</span> {user?.id === a.winnerId ? '🫵 You' : winnerDisplayName}
+                </span>
+              </div>
+            )}
             {(a.status === 'UNSOLD' || a.status === 'CANCELLED') && <p className="text-slate-400 text-sm mt-2 mb-0">Closed — {a.closeReason === 'RESERVE_NOT_MET' ? 'reserve not met' : a.closeReason === 'NO_BIDS' ? 'no valid bids' : a.status.toLowerCase()}.</p>}
           </div>
 
@@ -332,21 +355,22 @@ export default function AuctionDetail() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                      {user?.id === a.winnerId ? 'YOU WON THIS AUCTION' : 'WINNER DECLARED'}
+                      {user?.id === a.winnerId ? 'YOU WON THIS AUCTION 🎉' : myHighestBid ? 'OUTBID · AUCTION CONCLUDED' : 'WINNER DECLARED'}
                     </span>
-                    {user?.id === a.winnerId && <span className="text-xs">🎉</span>}
                   </div>
                   <h3 className="text-lg font-black text-white m-0 mt-1 truncate">
                     {user?.id === a.winnerId
                       ? 'Congratulations! You Won!'
                       : `Won by ${winnerDisplayName}`}
                   </h3>
-                  <p className="text-xs text-slate-400 m-0 mt-0.5">
+                  <p className="text-xs text-slate-300 m-0 mt-0.5 leading-relaxed">
                     {user?.id === a.winnerId
-                      ? 'Your bid was accepted as the winning offer. Settle payment below to complete purchase.'
-                      : user?.id === a.sellerId
-                        ? `Sold to ${winnerDisplayName} for ${money(hammerPrice)}. Payment invoice generated.`
-                        : `Final hammer price settled at ${money(hammerPrice)}.`}
+                      ? `Your bid of ${money(hammerPrice)} was accepted as the final winning amount. Please settle payment below.`
+                      : myHighestBid
+                        ? <>Your highest offer was <b className="text-amber-300">{money(myHighestBid)}</b>. The auction was won by <b className="text-emerald-300">{winnerDisplayName}</b> at <b className="text-white">{money(hammerPrice)}</b>.</>
+                        : user?.id === a.sellerId
+                          ? `Sold to ${winnerDisplayName} for ${money(hammerPrice)}. Payment invoice generated.`
+                          : `Hammer price settled at ${money(hammerPrice)} by ${winnerDisplayName}.`}
                   </p>
                 </div>
               </div>
@@ -407,9 +431,12 @@ export default function AuctionDetail() {
                   View Settlement Invoice Status →
                 </Link>
               ) : (
-                <div className="text-center py-1.5 text-xs text-slate-400 border-t border-line/40 pt-2.5">
-                  🏁 Bidding closed · Item awarded to top bidder
-                </div>
+                <Link
+                  to="/"
+                  className="w-full block text-center py-2.5 px-4 rounded-xl font-bold border border-line text-slate-300 hover:border-acc hover:text-white transition text-xs"
+                >
+                  Explore More Live Auctions →
+                </Link>
               )}
             </div>
           ) : (a.status === 'UNSOLD' || a.status === 'CANCELLED') ? (
