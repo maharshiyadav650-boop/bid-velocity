@@ -1,0 +1,71 @@
+server:
+  port: ${PORT:8080}
+  forward-headers-strategy: framework
+
+spring:
+  application:
+    name: bidvelocity-platform
+  main:
+    allow-bean-definition-overriding: true
+    bean-name-generator: org.springframework.context.annotation.FullyQualifiedAnnotationBeanNameGenerator
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:bidvelocity}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:}
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 2
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc.time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration/platform
+    baseline-on-migrate: true
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID:not-configured}
+            client-secret: ${GOOGLE_CLIENT_SECRET:not-configured}
+            scope: [openid, email, profile]
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+
+eureka:
+  client:
+    enabled: false
+
+bidvelocity:
+  jwt:
+    secret: ${JWT_SECRET:dev-only-insecure-gateway-secret-change-me-32}
+    access-minutes: ${JWT_ACCESS_MINUTES:120}
+    refresh-days: ${JWT_REFRESH_DAYS:14}
+  frontend-url: ${FRONTEND_URL:https://bidvelocity.vercel.app}
+  clients:
+    bidding: http://127.0.0.1:${PORT:8080}
+    auction: http://127.0.0.1:${PORT:8080}
+  demo:
+    seed: ${DEMO_SEED:false}
+  payments:
+    poll-ms: 5000
+    timeout-minutes: 30
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [platform-service] %-5level [cid:%X{correlationId:-}] %msg%n"
+
+springdoc:
+  title: BidVelocity Unified Platform API
+  description: Comprehensive microservices API for real-time auctions, bids, auth and payments
+  version: 0.1.0

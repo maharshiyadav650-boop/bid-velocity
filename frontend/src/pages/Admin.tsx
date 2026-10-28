@@ -1,16 +1,18 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, money } from '../api'
+import { api, money, API_BASE } from '../api'
 import { useAuth } from '../auth'
 
 async function jget<T>(path: string): Promise<T> {
-  const r = await fetch(path, { headers: { Authorization: 'Bearer ' + (localStorage.getItem('bv.token') || '') } })
+  const url = path.startsWith('http') ? path : `${API_BASE}${path}`
+  const r = await fetch(url, { headers: { Authorization: 'Bearer ' + (localStorage.getItem('bv.token') || '') } })
   const body = await r.json().catch(() => null)
   if (!r.ok) throw new Error((body && body.message) || r.statusText)
   return body as T
 }
 async function jsend<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const r = await fetch(path, { method, headers: { Authorization: 'Bearer ' + (localStorage.getItem('bv.token') || ''), 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined })
+  const url = path.startsWith('http') ? path : `${API_BASE}${path}`
+  const r = await fetch(url, { method, headers: { Authorization: 'Bearer ' + (localStorage.getItem('bv.token') || ''), 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined })
   const out = await r.json().catch(() => null)
   if (!r.ok) throw new Error((out && out.message) || r.statusText)
   return out as T

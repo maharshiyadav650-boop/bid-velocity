@@ -33,8 +33,10 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain chain(HttpSecurity http) throws Exception {
+    @org.springframework.core.annotation.Order(1)
+    public SecurityFilterChain authSecurityFilterChain(HttpSecurity http) throws Exception {
         http
+            .securityMatcher("/api/auth/**", "/oauth2/**", "/login/**", "/api/users/**", "/api/admin/**", "/actuator/**", "/error", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html")
             .csrf(csrf -> csrf.disable()) // stateless JWT API; no cookie auth for the JSON surface
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .headers(h -> h.frameOptions(f -> f.deny()).contentTypeOptions(c -> {}))

@@ -12,7 +12,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-@RestControllerAdvice
+@RestControllerAdvice(basePackages = "io.bidvelocity.payment.web")
 public class PaymentExceptionHandler {
 
     @ExceptionHandler(ApiException.class)

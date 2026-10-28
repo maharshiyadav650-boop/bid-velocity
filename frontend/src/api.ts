@@ -50,15 +50,15 @@ export const api = {
     http.get<Paged<Auction>>('/api/auctions', { params: p }).then(r => r.data),
   getAuction: (id: number) => http.get<Auction>(`/api/auctions/${id}`).then(r => r.data).catch(e => { throw err(e) }),
   createAuction: (b: object) => http.post<Auction>('/api/auctions', b).then(r => r.data).catch(e => { throw err(e) }),
-  myAuctions: () => http.get<Auction[]>('/api/auctions/mine').then(r => r.data),
+  myAuctions: () => http.get<Auction[]>('/api/auctions/mine').then(r => r.data).catch(() => []),
   cancelAuction: (id: number) => http.post(`/api/auctions/${id}/cancel`).catch(e => { throw err(e) }),
 
   placeBid: (b: { auctionId: number; amount: number; idempotencyKey: string }) =>
     http.post<{ bid: Bid; extended: boolean; newEndTime: string | null; minNext: number }>('/api/bids', b).then(r => r.data).catch(e => { throw err(e) }),
-  bidsFor: (id: number) => http.get<Bid[]>(`/api/bids/auction/${id}`, { params: { size: 40 } }).then(r => r.data),
-  myBids: () => http.get<Bid[]>('/api/bids/my').then(r => r.data),
+  bidsFor: (id: number) => http.get<Bid[]>(`/api/bids/auction/${id}`, { params: { size: 40 } }).then(r => r.data).catch(() => []),
+  myBids: () => http.get<Bid[]>('/api/bids/my').then(r => r.data).catch(() => []),
 
-  myPayments: () => http.get<Payment[]>('/api/payments/my').then(r => r.data),
+  myPayments: () => http.get<Payment[]>('/api/payments/my').then(r => r.data).catch(() => []),
   processPayment: (id: number) => http.post<Payment>(`/api/payments/${id}/process`).then(r => r.data).catch(e => { throw err(e) }),
 
   googleLoginUrl: () => `${API_BASE}/oauth2/authorization/google`,

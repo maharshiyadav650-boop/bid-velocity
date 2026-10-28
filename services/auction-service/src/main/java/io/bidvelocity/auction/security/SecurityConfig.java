@@ -20,8 +20,10 @@ public class SecurityConfig {
     public SecurityConfig(JwtAuthFilter jwtAuthFilter) { this.jwtAuthFilter = jwtAuthFilter; }
 
     @Bean
-    public SecurityFilterChain chain(HttpSecurity http) throws Exception {
+    @org.springframework.core.annotation.Order(2)
+    public SecurityFilterChain auctionSecurityFilterChain(HttpSecurity http) throws Exception {
         http
+            .securityMatcher("/api/auctions/**")
             .csrf(csrf -> csrf.disable())
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(a -> a

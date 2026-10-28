@@ -20,8 +20,11 @@ public class PaySecurityConfig {
     public PaySecurityConfig(PayJwtAuthFilter jwtAuthFilter) { this.jwtAuthFilter = jwtAuthFilter; }
 
     @Bean
-    public SecurityFilterChain chain(HttpSecurity http) throws Exception {
-        http.csrf(c -> c.disable())
+    @org.springframework.core.annotation.Order(4)
+    public SecurityFilterChain paymentSecurityFilterChain(HttpSecurity http) throws Exception {
+        http
+            .securityMatcher("/api/payments/**")
+            .csrf(c -> c.disable())
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(a -> a
                 .requestMatchers("/actuator/health", "/error").permitAll()

@@ -10,6 +10,7 @@ COPY services/auth-service/pom.xml services/auth-service/
 COPY services/auction-service/pom.xml services/auction-service/
 COPY services/bidding-service/pom.xml services/bidding-service/
 COPY services/payment-service/pom.xml services/payment-service/
+COPY services/platform-service/pom.xml services/platform-service/
 
 # Cache Maven dependencies
 RUN mvn dependency:go-offline -B
@@ -24,14 +25,15 @@ RUN mvn clean package -DskipTests -B
 FROM eclipse-temurin:21-jre-jammy
 WORKDIR /app
 
-# Install curl, nginx, gettext-base (for envsubst)
+# Install curl, netcat, nginx, gettext-base (for envsubst)
 RUN apt-get update && apt-get install -y --no-install-recommends curl netcat nginx gettext-base && rm -rf /var/lib/apt/lists/*
 
 # Copy built JAR artifacts from build stage
-COPY --from=build /workspace/services/auth-service/target/*.jar /app/auth-service.jar
-COPY --from=build /workspace/services/auction-service/target/*.jar /app/auction-service.jar
-COPY --from=build /workspace/services/bidding-service/target/*.jar /app/bidding-service.jar
-COPY --from=build /workspace/services/payment-service/target/*.jar /app/payment-service.jar
+COPY --from=build /workspace/services/platform-service/target/*.jar /app/platform-service.jar
+COPY --from=build /workspace/services/auth-service/target/*-exec.jar /app/auth-service.jar
+COPY --from=build /workspace/services/auction-service/target/*-exec.jar /app/auction-service.jar
+COPY --from=build /workspace/services/bidding-service/target/*-exec.jar /app/bidding-service.jar
+COPY --from=build /workspace/services/payment-service/target/*-exec.jar /app/payment-service.jar
 
 # Copy Nginx template and startup script
 COPY nginx.conf.template /app/nginx.conf.template

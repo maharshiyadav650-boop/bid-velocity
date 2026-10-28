@@ -21,6 +21,7 @@
     <module>services/auction-service</module>
     <module>services/bidding-service</module>
     <module>services/payment-service</module>
+    <module>services/platform-service</module>
   </modules>
 
   <properties>

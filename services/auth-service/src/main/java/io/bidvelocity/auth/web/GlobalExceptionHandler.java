@@ -13,7 +13,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /** Every service answers errors in the SAME shape (PS025 §36/§37). */
-@RestControllerAdvice
+@RestControllerAdvice(basePackages = "io.bidvelocity.auth.web")
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(ApiException.class)

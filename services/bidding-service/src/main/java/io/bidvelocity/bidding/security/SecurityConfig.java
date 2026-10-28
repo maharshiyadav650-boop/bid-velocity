@@ -19,8 +19,11 @@ public class SecurityConfig {
     public SecurityConfig(JwtAuthFilter jwtAuthFilter) { this.jwtAuthFilter = jwtAuthFilter; }
 
     @Bean
-    public SecurityFilterChain chain(HttpSecurity http) throws Exception {
-        http.csrf(csrf -> csrf.disable())
+    @org.springframework.core.annotation.Order(3)
+    public SecurityFilterChain biddingSecurityFilterChain(HttpSecurity http) throws Exception {
+        http
+            .securityMatcher("/api/bids/**", "/ws/**")
+            .csrf(csrf -> csrf.disable())
             .cors(cors -> {})
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             // internal service-to-service routes are host-network-only (gateway never routes /internal)
