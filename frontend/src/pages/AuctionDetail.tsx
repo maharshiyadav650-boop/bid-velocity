@@ -13,107 +13,193 @@ export default function AuctionDetail() {
   const qc = useQueryClient()
   const user = useAuth(s => s.user)
   const [toast, setToast] = useState<{ msg: string; kind: string } | null>(null)
+
   const connected = useAuctionSocket(aid, (e) => {
     if (e.event?.startsWith('BID_ACCEPTED')) {
       setToast({ msg: `⚡ ${e.bidderName} bid ${money(e.amount)}${e.event === 'BID_ACCEPTED_EXTENDED' ? ' — clock extended! ⏱' : ''}`, kind: 'ok' })
-      qc.invalidateQueries({ queryKey: ['auction', aid] }); qc.invalidateQueries({ queryKey: ['bids', aid] })
+      qc.invalidateQueries({ queryKey: ['auction', aid] })
+      qc.invalidateQueries({ queryKey: ['bids', aid] })
     }
-    if (e.event === 'AUCTION_SEALED') { setToast({ msg: '🏁 Auction sealed — resolving winner', kind: 'ok' }); setTimeout(() => qc.invalidateQueries({ queryKey: ['auction', aid] }), 1500) }
+    if (e.event === 'AUCTION_SEALED') {
+      setToast({ msg: '🏁 Auction sealed — resolving winner', kind: 'ok' })
+      setTimeout(() => qc.invalidateQueries({ queryKey: ['auction', aid] }), 1500)
+    }
   })
-  useEffect(() => { if (toast) { const t = setTimeout(() => setToast(null), 4200); return () => clearTimeout(t) } }, [toast])
 
-  const { data: a } = useQuery({ queryKey: ['auction', aid], queryFn: () => api.getAuction(aid), refetchInterval: connected ? 8000 : 2500 })
-  const { data: bids } = useQuery({ queryKey: ['bids', aid], queryFn: () => api.bidsFor(aid), refetchInterval: connected ? 10000 : 3000 })
+  useEffect(() => {
+    if (toast) {
+      const t = setTimeout(() => setToast(null), 4200)
+      return () => clearTimeout(t)
+    }
+  }, [toast])
+
+  const { data: a } = useQuery({ queryKey: ['auction', aid], queryFn: () => api.getAuction(aid), refetchInterval: connected ? 6000 : 2500 })
+  const { data: bids } = useQuery({ queryKey: ['bids', aid], queryFn: () => api.bidsFor(aid), refetchInterval: connected ? 6000 : 2500 })
+
+  // Real-time dynamic live price and bid metrics derived from latest bids feed & auction projection
+  const topBidAmount = bids && bids.length > 0 ? Number(bids[0].amount) : null
+  const livePrice = topBidAmount !== null ? Math.max(Number(a?.currentPrice || 0), topBidAmount) : Number(a?.currentPrice || 0)
+  const liveBidCount = Math.max(a?.bidCount || 0, bids?.length || 0)
+  const minNext = livePrice > 0 ? (bids && bids.length > 0 ? livePrice + 1 : Number(a?.minNextBid || a?.startingPrice || 1)) : Number(a?.minNextBid || a?.startingPrice || 1)
+
   const [amount, setAmount] = useState<string>('')
-  useEffect(() => { if (a) setAmount(String(a.minNextBid)) }, [a?.id, a?.minNextBid])
+  useEffect(() => {
+    if (livePrice > 0) {
+      const step = Number(a?.minIncrement) || 100
+      setAmount(String(livePrice + step))
+    }
+  }, [a?.id, livePrice, a?.minIncrement])
 
   const open = a && (a.status === 'LIVE' || a.status === 'ENDING')
-  const iAmTop = !!(a && user && a.highestBidId && bids?.find(b => b.id === a.highestBidId)?.bidderId === user.id)
+  const topBidderId = bids && bids.length > 0 ? bids[0].bidderId : (a?.highestBidId ? bids?.find(b => b.id === a.highestBidId)?.bidderId : null)
+  const iAmTop = !!(user && topBidderId === user.id)
   const recent = useMemo(() => (bids ?? []).slice(0, 12), [bids])
+
   const heat = useMemo(() => {
     if (!a || !bids?.length) return []
     const start = +new Date(a.startTime), end = +new Date(a.endTime)
     const buckets = Array.from({ length: 14 }, () => 0)
-    bids.forEach(b => { const t = (+new Date(b.at) - start) / Math.max(1, end - start); buckets[Math.min(13, Math.max(0, Math.floor(t * 14)))]++ })
+    bids.forEach(b => {
+      const t = (+new Date(b.at) - start) / Math.max(1, end - start)
+      buckets[Math.min(13, Math.max(0, Math.floor(t * 14)))]++
+    })
     const mx = Math.max(...buckets, 1)
     return buckets.map(v => v / mx)
   }, [a, bids])
 
   const prevTop = useRef(false)
   useEffect(() => {
-    if (prevTop.current && !iAmTop && user) setToast({ msg: '🔔 You have been OUTBID — place a higher bid!', kind: 'err' })
+    if (prevTop.current && !iAmTop && user) {
+      setToast({ msg: '🔔 You have been OUTBID — place a higher bid!', kind: 'err' })
+    }
     prevTop.current = iAmTop
-  }, [iAmTop])
+  }, [iAmTop, user])
+
   const velocity = useMemo(() => {
     if (!bids?.length) return 0
     const cutoff = Date.now() - 60_000
     return bids.filter(b => +new Date(b.at) >= cutoff).length
   }, [bids])
 
-  if (!a) return <main className="max-w-6xl mx-auto p-10 text-slate-500">Loading auction… (is the auction service up? scripts\start-auction.bat)</main>
+  if (!a) {
+    return <main className="max-w-6xl mx-auto p-10 text-slate-500">Loading auction… (is the auction service up?)</main>
+  }
 
   const submit = async () => {
     if (!user) return setToast({ msg: 'Sign in with a buyer account to bid', kind: 'err' })
     try {
       const r = await api.placeBid({ auctionId: aid, amount: Number(amount), idempotencyKey: uuid() })
       setToast({ msg: `✅ Bid accepted at ${money(r.bid.amount)}${r.extended ? ' — anti-sniping extended the clock!' : ''}`, kind: 'ok' })
-      qc.invalidateQueries({ queryKey: ['auction', aid] }); qc.invalidateQueries({ queryKey: ['bids', aid] })
-    } catch (e) { setToast({ msg: '⛔ ' + (e as Error).message, kind: 'err' }); qc.invalidateQueries({ queryKey: ['auction', aid] }) }
+      qc.invalidateQueries({ queryKey: ['auction', aid] })
+      qc.invalidateQueries({ queryKey: ['bids', aid] })
+    } catch (e) {
+      setToast({ msg: '⛔ ' + (e as Error).message, kind: 'err' })
+      qc.invalidateQueries({ queryKey: ['auction', aid] })
+      qc.invalidateQueries({ queryKey: ['bids', aid] })
+    }
   }
 
   return (
     <main className="max-w-6xl mx-auto px-5 pt-6 pb-16">
-      {toast && <div className={`fixed top-16 right-4 z-50 px-4 py-3 rounded-xl border text-sm font-semibold pop ${toast.kind === 'ok' ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-200' : 'bg-rose-500/10 border-rose-500/40 text-rose-200'}`}>{toast.msg}</div>}
+      {toast && (
+        <div className={`fixed top-16 right-4 z-50 px-4 py-3 rounded-xl border text-sm font-semibold pop ${toast.kind === 'ok' ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-200' : 'bg-rose-500/10 border-rose-500/40 text-rose-200'}`}>
+          {toast.msg}
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center gap-2 mb-4 text-xs">
         {statusChip(a.status)}
         <span className="px-2.5 py-0.5 rounded-full border border-line text-slate-400">{a.category}</span>
-        {a.antiSnipingEnabled && <span className="px-2.5 py-0.5 rounded-full border border-line text-slate-400">🛡 anti-snipe +{a.extensionWindowSecs}s · {a.extensionCount}/{a.maxExtensions}</span>}
+        {a.antiSnipingEnabled && (
+          <span className="px-2.5 py-0.5 rounded-full border border-line text-slate-400">
+            🛡 anti-snipe +{a.extensionWindowSecs}s · {a.extensionCount}/{a.maxExtensions}
+          </span>
+        )}
         <span className={`px-2.5 py-0.5 rounded-full border ${connected ? 'border-emerald-500/40 text-emerald-300' : 'border-slate-600 text-slate-500'}`}>
           <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1 ${connected ? 'bg-good animate-pulse' : 'bg-slate-500'}`} />
           {connected ? 'LIVE FEED' : 'polling (socket down)'}
         </span>
-        <button className="ml-auto px-3 py-1 rounded-lg border border-line text-slate-300 hover:border-acc hover:text-white transition" onClick={() => { navigator.clipboard.writeText(location.href) }}>🔗 Share</button>
+        <button
+          className="ml-auto px-3 py-1 rounded-lg border border-line text-slate-300 hover:border-acc hover:text-white transition"
+          onClick={() => { navigator.clipboard.writeText(location.href) }}
+        >
+          🔗 Share
+        </button>
       </div>
 
-      {a.status === 'ENDING' && <div className="alarm-banner mb-4 rounded-xl border px-4 py-2 text-center font-extrabold tracking-wide text-rose-200">🚨 FINAL MINUTE — BIDDING CLOSING · ANTI-SNIPE ARMED</div>}
+      {a.status === 'ENDING' && (
+        <div className="alarm-banner mb-4 rounded-xl border px-4 py-2 text-center font-extrabold tracking-wide text-rose-200">
+          🚨 FINAL MINUTE — BIDDING CLOSING · ANTI-SNIPE ARMED
+        </div>
+      )}
 
       <div className="mb-5 rounded-2xl border border-line bg-panel/60 px-4 py-3 flex flex-wrap items-center gap-x-6 gap-y-2">
-        <span className="flex items-center gap-2 font-extrabold text-sm"><span className={`w-2.5 h-2.5 rounded-full ${connected ? 'bg-good led-live' : 'bg-slate-500'}`} />{connected ? 'LIVE' : 'OFFLINE'}</span>
-        <div><div className="text-[10px] text-slate-500 font-bold">BIDS</div><div className="font-extrabold tabular-nums">{a.bidCount}</div></div>
+        <span className="flex items-center gap-2 font-extrabold text-sm">
+          <span className={`w-2.5 h-2.5 rounded-full ${connected ? 'bg-good led-live' : 'bg-slate-500'}`} />
+          {connected ? 'LIVE' : 'OFFLINE'}
+        </span>
+        <div><div className="text-[10px] text-slate-500 font-bold">BIDS</div><div className="font-extrabold tabular-nums">{liveBidCount}</div></div>
         <div><div className="text-[10px] text-slate-500 font-bold">VELOCITY</div><div className={`font-extrabold tabular-nums ${velocity >= 5 ? 'text-rose-300' : 'text-slate-200'}`}>{velocity}/min {velocity >= 5 ? '🔥' : ''}</div></div>
-        <div><div className="text-[10px] text-slate-500 font-bold">TOP BID</div><div className="font-extrabold tabular-nums glow">{money(a.currentPrice)}</div></div>
-        <div className="ml-auto text-right"><div className="text-[10px] text-slate-500 font-bold">TIME LEFT</div><div className={`text-lg font-extrabold tabular-nums ${a.status === 'ENDING' ? 'text-rose-300 blink-critical' : ''}`}><Countdown end={a.status === 'SCHEDULED' ? a.startTime : a.endTime} /></div></div>
+        <div><div className="text-[10px] text-slate-500 font-bold">TOP BID</div><div className="font-extrabold tabular-nums glow">{money(livePrice)}</div></div>
+        <div className="ml-auto text-right">
+          <div className="text-[10px] text-slate-500 font-bold">TIME LEFT</div>
+          <div className={`text-lg font-extrabold tabular-nums ${a.status === 'ENDING' ? 'text-rose-300 blink-critical' : ''}`}>
+            <Countdown end={a.status === 'SCHEDULED' ? a.startTime : a.endTime} />
+          </div>
+        </div>
       </div>
 
       <div className="grid lg:grid-cols-[1.1fr_.9fr] gap-5">
         <div className="space-y-5">
-          <div className={`rounded-2xl overflow-hidden border ${a.status === 'ENDING' ? 'border-amber-400/70' : 'border-line'}`}><div className="relative h-72 grid place-items-center text-8xl overflow-hidden" style={{ background: 'linear-gradient(135deg,#0ea5e9,#6366f1)' }}>{a.emoji}{a.imageUrl && <img src={a.imageUrl} alt={a.title} className="absolute inset-0 h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />}</div></div>
+          <div className={`rounded-2xl overflow-hidden border ${a.status === 'ENDING' ? 'border-amber-400/70' : 'border-line'}`}>
+            <div className="relative h-72 grid place-items-center text-8xl overflow-hidden" style={{ background: 'linear-gradient(135deg,#0ea5e9,#6366f1)' }}>
+              {a.emoji}
+              {a.imageUrl && (
+                <img src={a.imageUrl} alt={a.title} className="absolute inset-0 h-full w-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+              )}
+            </div>
+          </div>
           <div className="rounded-2xl border border-line bg-panel p-5">
             <h1 className="text-xl font-extrabold m-0">{a.title}</h1>
             <p className="text-xs text-slate-500 mt-1 mb-3">by <b>{a.sellerId === user?.id ? 'you' : 'Seller ' + a.sellerId}</b> · optimistic-lock v{a.version}</p>
             <p className="text-sm text-slate-400">{a.description}</p>
             <div className="grid grid-cols-2 gap-2 mt-4 text-xs">
-              {[['Starting price', money(a.startingPrice)], ['Min increment', money(a.minIncrement)], ['Reserve', a.reservePrice ? money(a.reservePrice) : 'none'], ['Bids', String(a.bidCount)]].map(([k, v]) =>
-                <div key={k} className="rounded-lg bg-slate-800/40 p-2.5"><div className="text-slate-500">{k}</div><div className="font-bold text-sm">{v}</div></div>)}
+              {[
+                ['Starting price', money(a.startingPrice)],
+                ['Min increment', money(a.minIncrement)],
+                ['Reserve', a.reservePrice ? money(a.reservePrice) : 'none'],
+                ['Bids', String(liveBidCount)]
+              ].map(([k, v]) => (
+                <div key={k} className="rounded-lg bg-slate-800/40 p-2.5">
+                  <div className="text-slate-500">{k}</div>
+                  <div className="font-bold text-sm">{v}</div>
+                </div>
+              ))}
             </div>
           </div>
           <div className="rounded-2xl border border-line bg-panel p-5">
             <h3 className="text-sm font-bold m-0 mb-2">🔥 Bid intensity (auction lifetime)</h3>
-            <div className="flex gap-1 h-9 items-end">{(heat.length ? heat : Array(14).fill(0)).map((v, i) => <div key={i} className="flex-1 rounded-sm bg-gradient-to-t from-acc to-acc2" style={{ height: `${Math.max(8, v * 100)}%` }} />)}</div>
+            <div className="flex gap-1 h-9 items-end">
+              {(heat.length ? heat : Array(14).fill(0)).map((v, i) => (
+                <div key={i} className="flex-1 rounded-sm bg-gradient-to-t from-acc to-acc2" style={{ height: `${Math.max(8, v * 100)}%` }} />
+              ))}
+            </div>
           </div>
         </div>
 
         <div className="space-y-5">
           <div className={`rounded-2xl border p-5 ${a.status === 'ENDING' ? 'border-amber-400/70 animate-pulse' : 'border-line'} bg-panel`}>
             <div className="text-xs text-slate-500 font-bold">CURRENT HIGHEST BID</div>
-            <div className={`text-4xl font-extrabold led-pop glow ${a.status === 'ENDING' ? 'text-amber-300' : ''}`} key={a.currentPrice}>{money(a.currentPrice)}</div>
+            <div className={`text-4xl font-extrabold led-pop glow ${a.status === 'ENDING' ? 'text-amber-300' : ''}`} key={livePrice}>
+              {money(livePrice)}
+            </div>
             {iAmTop && <div className="text-good text-sm font-bold">🫵 You are the top bidder</div>}
             <div className="flex justify-between items-center mt-3">
               <span className="text-xs text-slate-500 font-bold">{a.status === 'SCHEDULED' ? 'STARTS IN' : 'TIME REMAINING'}</span>
               <span className="text-2xl font-extrabold tabular-nums"><Countdown end={a.status === 'SCHEDULED' ? a.startTime : a.endTime} /></span>
             </div>
             {a.status === 'ENDING' && <p className="text-amber-300/90 text-xs mt-2 mb-0">⚡ Under one minute. Anti-sniping may extend the clock.</p>}
-            {a.status === 'SOLD' && <p className="text-good text-sm mt-2 mb-0">🏆 Sold{a.winnerId === user?.id ? ' — YOU WON' : ''} for {money(a.winningAmount ?? a.currentPrice)}. <Link className="underline" to="/payments">Settle →</Link></p>}
+            {a.status === 'SOLD' && <p className="text-good text-sm mt-2 mb-0">🏆 Sold{a.winnerId === user?.id ? ' — YOU WON' : ''} for {money(a.winningAmount ?? livePrice)}. <Link className="underline" to="/payments">Settle →</Link></p>}
             {(a.status === 'UNSOLD' || a.status === 'CANCELLED') && <p className="text-slate-400 text-sm mt-2 mb-0">Closed — {a.closeReason === 'RESERVE_NOT_MET' ? 'reserve not met' : a.closeReason === 'NO_BIDS' ? 'no valid bids' : a.status.toLowerCase()}.</p>}
           </div>
 
@@ -121,29 +207,70 @@ export default function AuctionDetail() {
             <div className="rounded-2xl border border-line bg-panel p-5">
               <h3 className="font-bold m-0 mb-2">Place your bid</h3>
               <div className="flex gap-2">
-                <input type="number" value={amount} onChange={e => setAmount(e.target.value)} className="flex-1 bg-slate-800/60 border border-line rounded-xl px-3 py-2.5 font-bold outline-none focus:border-acc" />
-                <button onClick={submit} className="px-5 py-2.5 rounded-xl font-extrabold bg-gradient-to-r from-acc to-acc2 text-ink btn-led">BID NOW</button>
+                <input
+                  type="number"
+                  value={amount}
+                  onChange={e => setAmount(e.target.value)}
+                  className="flex-1 bg-slate-800/60 border border-line rounded-xl px-3 py-2.5 font-bold outline-none focus:border-acc"
+                />
+                <button onClick={submit} className="px-5 py-2.5 rounded-xl font-extrabold bg-gradient-to-r from-acc to-acc2 text-ink btn-led">
+                  BID NOW
+                </button>
               </div>
               <div className="flex flex-wrap gap-2 mt-3">
-                {[1, 10, 100].map(d => <button key={d} onClick={() => setAmount(String(Number(a.currentPrice) + d))} className="px-3 py-1.5 rounded-lg text-xs font-bold border border-line text-slate-300 hover:border-acc hover:text-white hover-lift">+ {money(d)}</button>)}
-                <button onClick={() => setAmount(String(Number(a.currentPrice) + Number(a.minIncrement)))} className="px-3 py-1.5 rounded-lg text-xs font-bold border border-line text-slate-300 hover:border-acc hover:text-white hover-lift">+ {money(a.minIncrement)} step</button>
+                {[1, 10, 100].map(d => (
+                  <button
+                    key={d}
+                    onClick={() => setAmount(String(livePrice + d))}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold border border-line text-slate-300 hover:border-acc hover:text-white hover-lift"
+                  >
+                    + {money(d)}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setAmount(String(livePrice + Number(a.minIncrement || 100)))}
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold border border-line text-slate-300 hover:border-acc hover:text-white hover-lift"
+                >
+                  + {money(a.minIncrement || 100)} step
+                </button>
               </div>
               <div className="grid grid-cols-2 gap-2 mt-3 text-xs">
-                <div className="rounded-lg bg-slate-800/40 p-2.5"><div className="text-slate-500">Current bid</div><b className="text-sm">{money(a.currentPrice)}</b></div>
-                <div className="rounded-lg bg-slate-800/40 p-2.5"><div className="text-slate-500">Minimum next</div><b className="text-sm">{money(a.minNextBid)}</b></div>
+                <div className="rounded-lg bg-slate-800/40 p-2.5">
+                  <div className="text-slate-500">Current bid</div>
+                  <b className="text-sm">{money(livePrice)}</b>
+                </div>
+                <div className="rounded-lg bg-slate-800/40 p-2.5">
+                  <div className="text-slate-500">Minimum next</div>
+                  <b className="text-sm">{money(minNext)}</b>
+                </div>
               </div>
-              <p className="text-[11px] text-slate-500 mt-3 mb-0">💡 Any bid above the current price is valid — even +₹1. Double-clicks can't create two bids (idempotency key).</p>
+              <p className="text-[11px] text-slate-500 mt-3 mb-0">
+                💡 Any bid above the current price is valid — even +₹1. Double-clicks can't create two bids (idempotency key).
+              </p>
             </div>
-          ) : !user && <div className="rounded-2xl border border-line bg-panel p-5 text-sm text-slate-400"><Link to="/login" className="text-acc font-bold">Sign in</Link> to bid when this auction opens.</div>}
+          ) : !user && (
+            <div className="rounded-2xl border border-line bg-panel p-5 text-sm text-slate-400">
+              <Link to="/login" className="text-acc font-bold">Sign in</Link> to bid when this auction opens.
+            </div>
+          )}
 
           <div className="rounded-2xl border border-line bg-panel p-5">
             <h3 className="font-bold m-0 mb-2">Live bid activity</h3>
             {recent.length ? recent.map((b: Bid) => (
-              <div key={b.id} className={`hover-lift flex justify-between py-2 px-2.5 rounded-lg text-sm border-b border-line/50 ${b.bidderId === user?.id ? 'bg-cyan-400/5 outline outline-1 outline-cyan-400/30' : ''}`}>
-                <span>{b.bidderId === user?.id ? '🫵 ' : ''}{b.bidderName} <span className="text-slate-600 text-xs">· {new Date(b.at).toLocaleTimeString()}</span></span>
+              <div
+                key={b.id}
+                className={`hover-lift flex justify-between py-2 px-2.5 rounded-lg text-sm border-b border-line/50 ${b.bidderId === user?.id ? 'bg-cyan-400/5 outline outline-1 outline-cyan-400/30' : ''}`}
+              >
+                <span>
+                  {b.bidderId === user?.id ? '🫵 ' : ''}
+                  {b.bidderName}{' '}
+                  <span className="text-slate-600 text-xs">· {new Date(b.at).toLocaleTimeString()}</span>
+                </span>
                 <b className="tabular-nums">{money(b.amount)}</b>
               </div>
-            )) : <p className="text-slate-500 text-sm m-0">No bids yet — open the floor.</p>}
+            )) : (
+              <p className="text-slate-500 text-sm m-0">No bids yet — open the floor.</p>
+            )}
           </div>
         </div>
       </div>

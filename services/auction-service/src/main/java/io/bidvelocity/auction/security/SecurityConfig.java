@@ -29,6 +29,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(a -> a
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/auctions/**").permitAll() // marketplace browsing is public
                 .requestMatchers("/api/auctions/outbox/**").permitAll() // internal outbox poll + ack (host network only; gateway never routes it)
+                .requestMatchers(org.springframework.http.HttpMethod.PUT, "/api/auctions/*/bid-state").permitAll() // internal bid sync from bidding service
                 .requestMatchers("/actuator/health", "/error").permitAll()
                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 .anyRequest().authenticated())

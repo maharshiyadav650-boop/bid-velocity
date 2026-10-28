@@ -19,8 +19,7 @@ public class AuctionInternalController {
     public AuctionInternalController(AuctionService service) { this.service = service; }
 
     @PutMapping("/{id}/bid-state")
-    @PreAuthorize("hasAnyAuthority('SELLER','ADMIN')")
-    AuctionDto syncBidState(@PathVariable long id, @RequestBody BidStateSync s) {
+    public AuctionDto syncBidState(@PathVariable long id, @RequestBody BidStateSync s) {
         return service.syncBidState(id, s);
     }
 }

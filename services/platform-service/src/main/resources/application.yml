@@ -47,8 +47,8 @@ bidvelocity:
     refresh-days: ${JWT_REFRESH_DAYS:14}
   frontend-url: ${FRONTEND_URL:https://bidvelocity.vercel.app}
   clients:
-    bidding: http://127.0.0.1:${PORT:8080}
-    auction: http://127.0.0.1:${PORT:8080}
+    bidding: http://127.0.0.1:8080
+    auction: http://127.0.0.1:8080
   demo:
     seed: ${DEMO_SEED:false}
   payments:
@@ -69,3 +69,4 @@ springdoc:
   title: BidVelocity Unified Platform API
   description: Comprehensive microservices API for real-time auctions, bids, auth and payments
   version: 0.1.0
+
