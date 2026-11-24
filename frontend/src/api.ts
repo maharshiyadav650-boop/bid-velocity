@@ -44,7 +44,7 @@ export const api = {
   login: (b: { email: string; password: string }) =>
     http.post<AuthResponse>('/api/auth/login', b).then(r => r.data).catch(e => { throw err(e) }),
   forgotPassword: (email: string) =>
-    http.post<{ status: string; message: string; resetCode: string }>('/api/auth/forgot-password', { email }).then(r => r.data).catch(e => { throw err(e) }),
+    http.post<{ status: string; message: string; maskedEmail: string; resetCode: string }>('/api/auth/forgot-password', { email }).then(r => r.data).catch(e => { throw err(e) }),
   resetPassword: (b: { email: string; code: string; newPassword: string }) =>
     http.post<{ status: string; message: string }>('/api/auth/reset-password', b).then(r => r.data).catch(e => { throw err(e) }),
   me: () => http.get<User>('/api/users/me').then(r => r.data).catch(() => null),

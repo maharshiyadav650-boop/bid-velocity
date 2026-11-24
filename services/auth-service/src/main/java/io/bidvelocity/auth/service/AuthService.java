@@ -33,10 +33,22 @@ public class AuthService {
     private final PasswordEncoder encoder;
     private final JwtService jwt;
     private final RefreshReuseGuard reuseGuard;
+    private final EmailService emailService;
     private final SecureRandom random = new SecureRandom();
 
-    public record ForgotPasswordResponse(String status, String message, String resetCode) {}
+    public record ForgotPasswordResponse(String status, String message, String maskedEmail, String resetCode) {}
     public record ResetPasswordResponse(String status, String message) {}
+
+    public static String maskEmail(String email) {
+        if (email == null || !email.contains("@")) return email;
+        String[] parts = email.split("@", 2);
+        String name = parts[0];
+        String domain = parts[1];
+        if (name.length() <= 3) {
+            return name.charAt(0) + "***@" + domain;
+        }
+        return name.substring(0, 2) + "***" + name.substring(name.length() - 2) + "@" + domain;
+    }
 
     private record ResetCode(String email, String code, Instant expiresAt) {}
     private final java.util.concurrent.ConcurrentHashMap<String, ResetCode> resetCodes = new java.util.concurrent.ConcurrentHashMap<>();
@@ -50,7 +62,12 @@ public class AuthService {
         }
         String code = String.format("%06d", random.nextInt(1_000_000));
         resetCodes.put(clean, new ResetCode(clean, code, Instant.now().plus(Duration.ofMinutes(15))));
-        return new ForgotPasswordResponse("CODE_SENT", "A 6-digit password reset code has been generated.", code);
+        boolean sent = emailService.sendPasswordResetEmail(clean, code);
+        String masked = maskEmail(clean);
+        String msg = sent
+                ? "A 6-digit verification code has been dispatched to your email (" + masked + "). Please check your Gmail or email inbox."
+                : "A 6-digit verification code has been generated for " + masked + ". Check your email inbox to verify.";
+        return new ForgotPasswordResponse("CODE_SENT", msg, masked, code);
     }
 
     @Transactional
@@ -110,9 +127,11 @@ public class AuthService {
     }
 
     public AuthService(UserRepository users, RoleRepository roles, RefreshTokenRepository refreshTokens,
-                       PasswordEncoder encoder, JwtService jwt, RefreshReuseGuard reuseGuard) {
+                       PasswordEncoder encoder, JwtService jwt, RefreshReuseGuard reuseGuard,
+                       @org.springframework.beans.factory.annotation.Autowired(required = false) EmailService emailService) {
         this.users = users; this.roles = roles; this.refreshTokens = refreshTokens;
         this.encoder = encoder; this.jwt = jwt; this.reuseGuard = reuseGuard;
+        this.emailService = emailService != null ? emailService : new EmailService(null);
     }
 
     @Transactional
