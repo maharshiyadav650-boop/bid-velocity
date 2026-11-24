@@ -19,7 +19,13 @@ const nav = 'px-3 py-2 rounded-lg text-sm font-semibold text-slate-400 hover:tex
 export default function App() {
   const { user, ready, init, logout } = useAuth()
   const navigate = useNavigate()
-  useEffect(() => { init() }, [])
+  useEffect(() => {
+    init()
+    const ping = setInterval(() => {
+      fetch('https://bidvelocity-backend.onrender.com/actuator/health').catch(() => {})
+    }, 240000)
+    return () => clearInterval(ping)
+  }, [])
 
   return (
     <div className="min-h-screen font-sans">

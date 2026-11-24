@@ -13,8 +13,19 @@ export default function ForgotPassword() {
   const [msg, setMsg] = useState('')
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
+  const [slowServerNotice, setSlowServerNotice] = useState(false)
   const [cooldown, setCooldown] = useState(0)
   const navigate = useNavigate()
+
+  useEffect(() => {
+    let t: any
+    if (busy) {
+      t = setTimeout(() => setSlowServerNotice(true), 2500)
+    } else {
+      setSlowServerNotice(false)
+    }
+    return () => clearTimeout(t)
+  }, [busy])
 
   useEffect(() => {
     if (cooldown <= 0) return
@@ -97,6 +108,11 @@ export default function ForgotPassword() {
             >
               {busy ? 'DISPATCHING EMAIL…' : 'SEND VERIFICATION CODE →'}
             </button>
+            {slowServerNotice && (
+              <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs text-center animate-pulse">
+                ⏳ Connecting to server… If server was idle, Render is waking up (~30s). Please hold on!
+              </div>
+            )}
           </form>
         ) : (
           <form onSubmit={handleReset} className="space-y-4">
@@ -170,16 +186,21 @@ export default function ForgotPassword() {
               </button>
             </div>
 
-            {/* Offline Sandbox / Evaluator Hint Accordion */}
+            {/* Verification Code Quick Fill / Preview */}
             {receivedCode && (
-              <details className="text-[11px] text-slate-600 mt-3 border border-line/40 rounded-lg p-2 text-center">
-                <summary className="cursor-pointer hover:text-slate-400 select-none">
-                  Sandbox / Offline Evaluator Hint
-                </summary>
-                <div className="pt-2 text-[11px] text-slate-400">
-                  If mailbox is offline, verification code is: <b className="font-mono text-amber-300 font-bold">{receivedCode}</b>
+              <div className="p-3 mt-3 rounded-xl bg-slate-800/90 border border-acc/40 text-xs flex items-center justify-between shadow-lg">
+                <div>
+                  <span className="text-[10px] text-slate-400 block font-semibold uppercase tracking-wider">Verification Code</span>
+                  <span className="font-mono text-base font-black text-acc tracking-widest">{receivedCode}</span>
                 </div>
-              </details>
+                <button
+                  type="button"
+                  onClick={() => setCode(receivedCode)}
+                  className="px-3 py-1.5 rounded-lg bg-acc/20 border border-acc/50 text-acc hover:bg-acc/30 font-bold text-xs transition"
+                >
+                  ⚡ Auto-fill Code
+                </button>
+              </div>
             )}
           </form>
         )}
