@@ -50,9 +50,6 @@ public class AuthService {
         return name.substring(0, 2) + "***" + name.substring(name.length() - 2) + "@" + domain;
     }
 
-    public record ResetPasswordResponse(String status, String message) {
-    }
-
     private record ResetCode(String email, String code, Instant expiresAt) {
     }
 
