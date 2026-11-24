@@ -16,8 +16,11 @@ public class EmailService {
 
     private final JavaMailSender mailSender;
 
-    @Value("${spring.mail.username:no-reply@bidvelocity.io}")
-    private String fromEmail;
+    @Value("${spring.mail.username:}")
+    private String mailUsername;
+
+    @Value("${spring.mail.password:}")
+    private String mailPassword;
 
     public EmailService(@Autowired(required = false) JavaMailSender mailSender) {
         this.mailSender = mailSender;
@@ -26,8 +29,8 @@ public class EmailService {
     public boolean sendPasswordResetEmail(String toEmail, String code) {
         log.info("[EMAIL VERIFICATION] Dispatching password reset code for: {}", toEmail);
 
-        if (mailSender == null) {
-            log.info("[EMAIL VERIFICATION] JavaMailSender is not initialized or host not configured. Reset code for {}: {}", toEmail, code);
+        if (mailSender == null || mailUsername == null || mailUsername.isBlank() || mailPassword == null || mailPassword.isBlank()) {
+            log.info("[EMAIL VERIFICATION] Live SMTP credentials not configured (set MAIL_USERNAME and MAIL_PASSWORD to dispatch live emails). Verification code for {}: {}", toEmail, code);
             return false;
         }
 
@@ -35,7 +38,7 @@ public class EmailService {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
-            String sender = (fromEmail != null && !fromEmail.isBlank()) ? fromEmail : "no-reply@bidvelocity.io";
+            String sender = mailUsername;
             helper.setFrom(sender, "BidVelocity Security");
             helper.setTo(toEmail);
             helper.setSubject("BidVelocity - Password Reset Verification Code: " + code);
