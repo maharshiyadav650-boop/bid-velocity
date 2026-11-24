@@ -9,7 +9,6 @@ export default function ForgotPassword() {
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [maskedEmail, setMaskedEmail] = useState('')
-  const [receivedCode, setReceivedCode] = useState('')
   const [msg, setMsg] = useState('')
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
@@ -39,8 +38,7 @@ export default function ForgotPassword() {
     try {
       const res = await api.forgotPassword(email)
       setMaskedEmail(res.maskedEmail || email)
-      setReceivedCode(res.resetCode)
-      setMsg(res.message || 'Verification code generated!')
+      setMsg(res.message || 'Verification code dispatched to your email!')
       setStep('reset')
       setCooldown(30)
     } catch (ex) {
@@ -121,24 +119,6 @@ export default function ForgotPassword() {
               <div className="font-mono text-sm font-bold text-acc mt-0.5">{maskedEmail}</div>
               <p className="text-[10px] text-slate-500 mt-1 mb-0">Check your inbox and spam/junk folder</p>
             </div>
-
-            {receivedCode && (
-              <div className="p-3.5 rounded-xl bg-gradient-to-r from-acc/15 to-acc2/15 border border-acc/50 text-center shadow-lg">
-                <span className="text-[11px] text-slate-300 font-bold block mb-1">
-                  🔑 6-Digit Verification Code:
-                </span>
-                <span className="font-mono text-2xl font-black text-acc tracking-[.3em] block mb-2">
-                  {receivedCode}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setCode(receivedCode)}
-                  className="px-4 py-1.5 rounded-lg bg-gradient-to-r from-acc to-acc2 text-ink font-extrabold text-xs shadow hover:opacity-90 transition"
-                >
-                  ⚡ Click to Auto-fill Code
-                </button>
-              </div>
-            )}
 
             <div>
               <label className="text-xs font-bold text-slate-400">6-Digit Verification Code</label>

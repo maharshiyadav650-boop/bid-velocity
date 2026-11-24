@@ -36,7 +36,7 @@ public class AuthService {
     private final EmailService emailService;
     private final SecureRandom random = new SecureRandom();
 
-    public record ForgotPasswordResponse(String status, String message, String maskedEmail, String resetCode) {}
+    public record ForgotPasswordResponse(String status, String message, String maskedEmail) {}
     public record ResetPasswordResponse(String status, String message) {}
 
     public static String maskEmail(String email) {
@@ -50,24 +50,33 @@ public class AuthService {
         return name.substring(0, 2) + "***" + name.substring(name.length() - 2) + "@" + domain;
     }
 
-    private record ResetCode(String email, String code, Instant expiresAt) {}
+    public record ResetPasswordResponse(String status, String message) {
+    }
+
+    private record ResetCode(String email, String code, Instant expiresAt) {
+    }
+
     private final java.util.concurrent.ConcurrentHashMap<String, ResetCode> resetCodes = new java.util.concurrent.ConcurrentHashMap<>();
 
     public ForgotPasswordResponse requestPasswordReset(String email) {
         String clean = email.trim().toLowerCase();
         User u = users.findByEmailIgnoreCase(clean)
-                .orElseThrow(() -> new ApiException(org.springframework.http.HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "No registered account found with that email"));
+                .orElseThrow(() -> new ApiException(org.springframework.http.HttpStatus.NOT_FOUND, "USER_NOT_FOUND",
+                        "No registered account found with that email"));
         if (!"ACTIVE".equals(u.getStatus())) {
             throw ApiException.suspended();
         }
         String code = String.format("%06d", random.nextInt(1_000_000));
         resetCodes.put(clean, new ResetCode(clean, code, Instant.now().plus(Duration.ofMinutes(15))));
         boolean sent = emailService.sendPasswordResetEmail(clean, code);
+        if (!sent) {
+            resetCodes.remove(clean);
+            throw new ApiException(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "MAIL_DISPATCH_FAILED",
+                    "Unable to dispatch verification email via SMTP. Please ensure MAIL_USERNAME and MAIL_PASSWORD are configured in the server environment.");
+        }
         String masked = maskEmail(clean);
-        String msg = sent
-                ? "A 6-digit verification code has been dispatched to your email (" + masked + "). Please check your Gmail or email inbox."
-                : "A 6-digit verification code has been generated for " + masked + ". Check your email inbox to verify.";
-        return new ForgotPasswordResponse("CODE_SENT", msg, masked, code);
+        String msg = "A 6-digit verification code has been dispatched to your email (" + masked + "). Please check your inbox.";
+        return new ForgotPasswordResponse("CODE_SENT", msg, masked);
     }
 
     @Transactional
@@ -75,32 +84,39 @@ public class AuthService {
         String clean = email.trim().toLowerCase();
         ResetCode rc = resetCodes.get(clean);
         if (rc == null || !rc.code().equals(code.trim())) {
-            throw new ApiException(org.springframework.http.HttpStatus.BAD_REQUEST, "INVALID_CODE", "Invalid or expired reset code");
+            throw new ApiException(org.springframework.http.HttpStatus.BAD_REQUEST, "INVALID_CODE",
+                    "Invalid or expired reset code");
         }
         if (Instant.now().isAfter(rc.expiresAt())) {
             resetCodes.remove(clean);
-            throw new ApiException(org.springframework.http.HttpStatus.BAD_REQUEST, "CODE_EXPIRED", "Reset code has expired. Please request a new one.");
+            throw new ApiException(org.springframework.http.HttpStatus.BAD_REQUEST, "CODE_EXPIRED",
+                    "Reset code has expired. Please request a new one.");
         }
         if (newPassword == null || newPassword.length() < 8) {
-            throw new ApiException(org.springframework.http.HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "Password must be at least 8 characters");
+            throw new ApiException(org.springframework.http.HttpStatus.BAD_REQUEST, "VALIDATION_ERROR",
+                    "Password must be at least 8 characters");
         }
         User u = users.findByEmailIgnoreCase(clean)
-                .orElseThrow(() -> new ApiException(org.springframework.http.HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "User not found"));
+                .orElseThrow(() -> new ApiException(org.springframework.http.HttpStatus.NOT_FOUND, "USER_NOT_FOUND",
+                        "User not found"));
         u.setPasswordHash(encoder.encode(newPassword));
         users.save(u);
         refreshTokens.revokeAllForUser(u.getId());
         resetCodes.remove(clean);
-        return new ResetPasswordResponse("PASSWORD_RESET_SUCCESS", "Your password has been successfully reset. You can now log in.");
+        return new ResetPasswordResponse("PASSWORD_RESET_SUCCESS",
+                "Your password has been successfully reset. You can now log in.");
     }
 
     @Transactional
-    public UserDto createUserByAdmin(String firstName, String lastName, String email, String password, List<String> roleList) {
+    public UserDto createUserByAdmin(String firstName, String lastName, String email, String password,
+            List<String> roleList) {
         String cleanEmail = email.trim().toLowerCase();
         if (users.findByEmailIgnoreCase(cleanEmail).isPresent()) {
             throw ApiException.duplicateEmail();
         }
         if (password == null || password.length() < 8) {
-            throw new ApiException(org.springframework.http.HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "Password must be at least 8 characters");
+            throw new ApiException(org.springframework.http.HttpStatus.BAD_REQUEST, "VALIDATION_ERROR",
+                    "Password must be at least 8 characters");
         }
         User u = new User();
         u.setEmail(cleanEmail);
@@ -116,7 +132,8 @@ public class AuthService {
                 .filter(name -> List.of("USER", "SELLER", "ADMIN").contains(name))
                 .map(n -> roles.findByName(n).orElseThrow(() -> new IllegalStateException("role missing: " + n)))
                 .collect(java.util.stream.Collectors.toSet());
-        if (assigned.isEmpty()) assigned.add(roles.findByName("USER").orElseThrow());
+        if (assigned.isEmpty())
+            assigned.add(roles.findByName("USER").orElseThrow());
         if (assigned.stream().anyMatch(r -> "ADMIN".equals(r.getName()))) {
             roles.findByName("SELLER").ifPresent(assigned::add);
         }
@@ -137,9 +154,11 @@ public class AuthService {
     @Transactional
     public AuthResponse register(RegisterRequest r) {
         String email = r.email().trim().toLowerCase();
-        if (users.findByEmailIgnoreCase(email).isPresent()) throw ApiException.duplicateEmail();
+        if (users.findByEmailIgnoreCase(email).isPresent())
+            throw ApiException.duplicateEmail();
         if (r.password() == null || r.password().length() < 8) {
-            throw new ApiException(org.springframework.http.HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "Password must be at least 8 characters");
+            throw new ApiException(org.springframework.http.HttpStatus.BAD_REQUEST, "VALIDATION_ERROR",
+                    "Password must be at least 8 characters");
         }
         User u = new User();
         u.setEmail(email);
@@ -158,28 +177,39 @@ public class AuthService {
     public AuthResponse login(LoginRequest r) {
         User u = users.findByEmailIgnoreCase(r.email().trim().toLowerCase()).orElse(null);
         if (u == null) {
-            encoder.matches(r.password(), "$2a$10$0000000000000000000000000000000000000000000000000000"); // constant-time-ish: burn the same BCrypt cost
+            encoder.matches(r.password(), "$2a$10$0000000000000000000000000000000000000000000000000000"); // constant-time-ish:
+                                                                                                          // burn the
+                                                                                                          // same BCrypt
+                                                                                                          // cost
             throw ApiException.invalidCredentials();
         }
-        if (!encoder.matches(r.password(), u.getPasswordHash())) throw ApiException.invalidCredentials();
-        if (!"ACTIVE".equals(u.getStatus())) throw ApiException.suspended();
+        if (!encoder.matches(r.password(), u.getPasswordHash()))
+            throw ApiException.invalidCredentials();
+        if (!"ACTIVE".equals(u.getStatus()))
+            throw ApiException.suspended();
         return issueFor(u);
     }
 
-    /** Rotate the refresh token; a reused (already-rotated) token revokes the whole family. */
+    /**
+     * Rotate the refresh token; a reused (already-rotated) token revokes the whole
+     * family.
+     */
     @Transactional
     public AuthResponse refresh(RefreshRequest r) {
         String hash = sha256(r.refreshToken());
         RefreshToken stored = refreshTokens.findByTokenHash(hash).orElse(null);
-        if (stored == null) throw ApiException.invalidRefresh();
-        if (stored.isRevoked()) {           // token reuse after rotation → family compromise → nuke family
-            reuseGuard.revokeFamily(stored.getFamilyId());   // committed even though this tx then throws
+        if (stored == null)
+            throw ApiException.invalidRefresh();
+        if (stored.isRevoked()) { // token reuse after rotation → family compromise → nuke family
+            reuseGuard.revokeFamily(stored.getFamilyId()); // committed even though this tx then throws
             throw ApiException.invalidRefresh();
         }
-        if (stored.getExpiresAt().isBefore(Instant.now())) throw ApiException.invalidRefresh();
+        if (stored.getExpiresAt().isBefore(Instant.now()))
+            throw ApiException.invalidRefresh();
         stored.setRevoked(true);
         User u = users.findById(stored.getUserId()).orElseThrow(ApiException::invalidRefresh);
-        if (!"ACTIVE".equals(u.getStatus())) throw ApiException.suspended();
+        if (!"ACTIVE".equals(u.getStatus()))
+            throw ApiException.suspended();
         Issued i = newRefresh(u.getId(), stored.getFamilyId());
         refreshTokens.save(i.entity());
         return new AuthResponse(jwt.issueAccess(toJwtUser(u)), i.raw(), jwt.accessTtlSeconds(), toDto(u));
@@ -204,7 +234,8 @@ public class AuthService {
     public UserDto setStatus(long id, String status) {
         User u = users.findById(id).orElseThrow(() -> ApiException.notFound("User"));
         u.setStatus(status);
-        if ("SUSPENDED".equals(status)) refreshTokens.revokeAllForUser(id); // cut live sessions immediately
+        if ("SUSPENDED".equals(status))
+            refreshTokens.revokeAllForUser(id); // cut live sessions immediately
         return toDto(u);
     }
 
@@ -212,7 +243,8 @@ public class AuthService {
     public UserDto setRoles(long id, List<String> roleNames, long adminId) {
         User u = users.findById(id).orElseThrow(() -> ApiException.notFound("User"));
         if (id == adminId && !roleNames.contains("ADMIN")) {
-            throw new ApiException(org.springframework.http.HttpStatus.BAD_REQUEST, "SELF_DEMOTION", "You cannot revoke your own ADMIN role");
+            throw new ApiException(org.springframework.http.HttpStatus.BAD_REQUEST, "SELF_DEMOTION",
+                    "You cannot revoke your own ADMIN role");
         }
         Set<Role> newRoles = roleNames.stream()
                 .filter(java.util.Objects::nonNull)
@@ -229,36 +261,48 @@ public class AuthService {
         return toDto(u);
     }
 
-    /** Google login: find by provider identity (or verified email), else create; always assign USER. */
+    /**
+     * Google login: find by provider identity (or verified email), else create;
+     * always assign USER.
+     */
     @Transactional
     public User upsertGoogleUser(String email, String firstName, String lastName, String googleSub) {
         User u = users.findByProviderAndProviderId("GOOGLE", googleSub)
                 .or(() -> users.findByEmailIgnoreCase(email.toLowerCase()))
                 .orElseGet(User::new);
         u.setEmail(email.toLowerCase());
-        if (u.getFirstName() == null) u.setFirstName(firstName == null ? "Google" : firstName);
-        if (u.getLastName() == null) u.setLastName(lastName == null ? "User" : lastName);
+        if (u.getFirstName() == null)
+            u.setFirstName(firstName == null ? "Google" : firstName);
+        if (u.getLastName() == null)
+            u.setLastName(lastName == null ? "User" : lastName);
         u.setProvider("GOOGLE");
         u.setProviderId(googleSub);
-        if (u.getPasswordHash() == null) u.setPasswordHash(encoder.encode("oauth-only-" + newRandomString()));
-        if ("SUSPENDED".equals(u.getStatus())) throw ApiException.suspended();
+        if (u.getPasswordHash() == null)
+            u.setPasswordHash(encoder.encode("oauth-only-" + newRandomString()));
+        if ("SUSPENDED".equals(u.getStatus()))
+            throw ApiException.suspended();
         u.setStatus("ACTIVE");
-        if (u.getRoles().isEmpty()) u.setRoles(roleSet("USER"));
+        if (u.getRoles().isEmpty())
+            u.setRoles(roleSet("USER"));
         users.save(u);
         return u;
     }
 
     /**
-     * Upgrade the current logged-in user to SELLER (idempotent). Google sign-in only
-     * ever grants USER, so this is the explicit "Start Selling" action. Returns a fresh
-     * AuthResponse whose JWT now carries the SELLER authority so the client can re-render.
+     * Upgrade the current logged-in user to SELLER (idempotent). Google sign-in
+     * only
+     * ever grants USER, so this is the explicit "Start Selling" action. Returns a
+     * fresh
+     * AuthResponse whose JWT now carries the SELLER authority so the client can
+     * re-render.
      */
     @Transactional
     public AuthResponse becomeSeller(long userId) {
         User u = users.findById(userId).orElseThrow(() -> ApiException.notFound("User"));
         boolean hasSeller = u.getRoles().stream().anyMatch(r -> "SELLER".equals(r.getName()));
         if (!hasSeller) {
-            Role seller = roles.findByName("SELLER").orElseThrow(() -> new IllegalStateException("role seed missing: SELLER"));
+            Role seller = roles.findByName("SELLER")
+                    .orElseThrow(() -> new IllegalStateException("role seed missing: SELLER"));
             u.getRoles().add(seller);
             users.save(u);
         }
@@ -266,14 +310,19 @@ public class AuthService {
     }
 
     private String newRandomString() {
-        byte[] b = new byte[24]; random.nextBytes(b);
+        byte[] b = new byte[24];
+        random.nextBytes(b);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(b);
     }
 
     /* ---- helpers ---- */
 
-    /** raw token exists only in the Issued record (returned once); only its SHA-256 hash is persisted */
-    private record Issued(RefreshToken entity, String raw) {}
+    /**
+     * raw token exists only in the Issued record (returned once); only its SHA-256
+     * hash is persisted
+     */
+    private record Issued(RefreshToken entity, String raw) {
+    }
 
     @Transactional
     public AuthResponse issueFor(User u) {
@@ -297,8 +346,10 @@ public class AuthService {
     private JwtService.User toJwtUser(User u) {
         String name = (u.getFirstName() != null ? u.getFirstName() : "") +
                 (u.getLastName() != null && !u.getLastName().isBlank() ? " " + u.getLastName() : "");
-        if (name.isBlank()) name = u.getEmail().contains("@") ? u.getEmail().split("@")[0] : u.getEmail();
-        return new JwtService.User(u.getId(), u.getEmail(), name.trim(), u.getRoles().stream().map(Role::getName).sorted().toList());
+        if (name.isBlank())
+            name = u.getEmail().contains("@") ? u.getEmail().split("@")[0] : u.getEmail();
+        return new JwtService.User(u.getId(), u.getEmail(), name.trim(),
+                u.getRoles().stream().map(Role::getName).sorted().toList());
     }
 
     public static UserDto toDto(User u) {
@@ -307,12 +358,17 @@ public class AuthService {
     }
 
     private Set<Role> roleSet(String... names) {
-        return java.util.Arrays.stream(names).map(n -> roles.findByName(n).orElseThrow(() -> new IllegalStateException("role seed missing: " + n))).collect(java.util.stream.Collectors.toSet());
+        return java.util.Arrays.stream(names)
+                .map(n -> roles.findByName(n).orElseThrow(() -> new IllegalStateException("role seed missing: " + n)))
+                .collect(java.util.stream.Collectors.toSet());
     }
 
     static String sha256(String s) {
         try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(s.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
-        } catch (Exception e) { throw new IllegalStateException(e); }
+            return HexFormat.of().formatHex(
+                    MessageDigest.getInstance("SHA-256").digest(s.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
     }
 }
