@@ -83,7 +83,7 @@ export default function App() {
       )}
 
       <footer className="border-t border-line mt-16 py-8 text-center text-xs text-slate-500">
-        BidVelocity · gateway :8080 → auth :8081 · auction :8082 · bidding :8083 · payment :8084 · Eureka :8761 · PostgreSQL × 4 (database-per-service)
+        © {new Date().getFullYear()} BidVelocity. All rights reserved.
       </footer>
     </div>
   )

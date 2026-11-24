@@ -683,23 +683,6 @@ export default function Admin() {
         </section>
       )}
 
-      {/* Service Infrastructure Status Footnote */}
-      <footer className="mt-12 pt-6 border-t border-line/60 flex flex-wrap items-center justify-between text-xs text-slate-500 gap-3">
-        <div>
-          <span>Database: </span>
-          <span className="text-emerald-400 font-bold">Neon Serverless PostgreSQL (production)</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <span>Backend APIs:</span>
-          <a className="text-acc hover:underline font-mono" href={`${API_BASE}/actuator/health`} target="_blank" rel="noreferrer">
-            /actuator/health
-          </a>
-          <span>·</span>
-          <a className="text-acc hover:underline font-mono" href={`${API_BASE}/v3/api-docs`} target="_blank" rel="noreferrer">
-            OpenAPI Docs
-          </a>
-        </div>
-      </footer>
     </main>
   )
 }
