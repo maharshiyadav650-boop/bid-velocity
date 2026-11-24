@@ -58,4 +58,15 @@ class AuthController {
         if (id == admin.id()) throw new ApiException(HttpStatus.BAD_REQUEST, "SELF_SUSPENSION", "You cannot change your own status");
         return auth.setStatus(id, status);
     }
+
+    @PatchMapping("/admin/users/{id}/roles")
+    @PreAuthorize("hasAuthority('ADMIN')")
+    UserDto setUserRoles(@AuthenticationPrincipal AuthPrincipal admin, @PathVariable long id, @RequestBody Map<String, Object> body) {
+        Object rolesObj = body.get("roles");
+        if (!(rolesObj instanceof List<?> list)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "roles must be a list of role names");
+        }
+        List<String> roleStrings = list.stream().map(String::valueOf).toList();
+        return auth.setRoles(id, roleStrings, admin.id());
+    }
 }

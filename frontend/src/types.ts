@@ -17,3 +17,31 @@ export interface Bid { id: number; auctionId: number; bidderId: number; bidderNa
 export interface Payment { id: number; auctionId: number; auctionTitle: string; sellerId: number; winnerId: number; amount: number; currency: string; status: 'PENDING'|'PROCESSING'|'SUCCESS'|'FAILED'|'EXPIRED'|'REFUNDED'; provider: string; providerRef: string | null; failureReason: string | null; attempts: number; createdAt: string; updatedAt: string }
 
 export interface Paged<T> { content: T[]; totalElements: number; totalPages: number; number: number; size: number }
+
+export interface AdminStats {
+  totalUsers: number
+  activeUsers: number
+  suspendedUsers: number
+  sellerCount: number
+  adminCount: number
+  totalAuctions: number
+  liveAuctions: number
+  closedAuctions: number
+  cancelledAuctions: number
+  totalBids: number
+  totalGmv: number
+  totalPayments: number
+  settledPaymentsAmount: number
+}
+
+export interface AdminBid {
+  id: number
+  auctionId: number
+  auctionTitle: string
+  bidderId: number
+  bidderName: string
+  amount: number
+  status: string
+  rejectReason: string | null
+  acceptedAt: string
+}

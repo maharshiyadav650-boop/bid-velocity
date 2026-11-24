@@ -51,3 +51,6 @@ coverage/
 .classpath
 .project
 .settings/
+.neon
+__pycache__/
+*.log

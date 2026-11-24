@@ -115,6 +115,27 @@ public class AuthService {
         return toDto(u);
     }
 
+    @Transactional
+    public UserDto setRoles(long id, List<String> roleNames, long adminId) {
+        User u = users.findById(id).orElseThrow(() -> ApiException.notFound("User"));
+        if (id == adminId && !roleNames.contains("ADMIN")) {
+            throw new ApiException(org.springframework.http.HttpStatus.BAD_REQUEST, "SELF_DEMOTION", "You cannot revoke your own ADMIN role");
+        }
+        Set<Role> newRoles = roleNames.stream()
+                .filter(java.util.Objects::nonNull)
+                .map(String::trim)
+                .map(String::toUpperCase)
+                .filter(r -> List.of("USER", "SELLER", "ADMIN").contains(r))
+                .map(n -> roles.findByName(n).orElseThrow(() -> new IllegalStateException("role missing: " + n)))
+                .collect(java.util.stream.Collectors.toSet());
+        if (newRoles.isEmpty()) {
+            newRoles.add(roles.findByName("USER").orElseThrow(() -> new IllegalStateException("role missing: USER")));
+        }
+        u.setRoles(newRoles);
+        users.save(u);
+        return toDto(u);
+    }
+
     /** Google login: find by provider identity (or verified email), else create; always assign USER. */
     @Transactional
     public User upsertGoogleUser(String email, String firstName, String lastName, String googleSub) {

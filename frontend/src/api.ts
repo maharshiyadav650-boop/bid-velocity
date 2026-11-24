@@ -1,5 +1,5 @@
 import axios, { AxiosError } from 'axios'
-import type { Auction, AuthResponse, Bid, Payment, Paged, User } from './types'
+import type { Auction, AuthResponse, Bid, Payment, Paged, User, AdminStats, AdminBid } from './types'
 
 const rawBase = (import.meta.env.VITE_API_BASE || '').trim()
 export const API_BASE = (rawBase && !rawBase.includes('trycloudflare'))
@@ -60,6 +60,16 @@ export const api = {
 
   myPayments: () => http.get<Payment[]>('/api/payments/my').then(r => r.data).catch(() => []),
   processPayment: (id: number) => http.post<Payment>(`/api/payments/${id}/process`).then(r => r.data).catch(e => { throw err(e) }),
+
+  // Admin APIs
+  adminStats: () => http.get<AdminStats>('/api/admin/stats').then(r => r.data).catch(e => { throw err(e) }),
+  adminUsers: () => http.get<User[]>('/api/admin/users').then(r => r.data).catch(e => { throw err(e) }),
+  adminSetStatus: (id: number, status: 'ACTIVE' | 'SUSPENDED') => http.patch<User>(`/api/admin/users/${id}/status`, { status }).then(r => r.data).catch(e => { throw err(e) }),
+  adminSetRoles: (id: number, roles: string[]) => http.patch<User>(`/api/admin/users/${id}/roles`, { roles }).then(r => r.data).catch(e => { throw err(e) }),
+  adminRecentBids: (size = 50) => http.get<AdminBid[]>('/api/admin/bids', { params: { size } }).then(r => r.data).catch(() => []),
+  adminPayments: () => http.get<Payment[]>('/api/payments').then(r => r.data).catch(e => { throw err(e) }),
+  adminRefundPayment: (id: number) => http.post<Payment>(`/api/payments/${id}/refund`).then(r => r.data).catch(e => { throw err(e) }),
+  adminCloseAuction: (id: number) => http.post<Auction>(`/api/auctions/${id}/close`).then(r => r.data).catch(e => { throw err(e) }),
 
   googleLoginUrl: () => `${API_BASE}/oauth2/authorization/google`,
 }

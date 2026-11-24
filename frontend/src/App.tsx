@@ -32,7 +32,20 @@ export default function App() {
             <NavLink className={({ isActive }) => nav + (isActive ? ' bg-slate-800 text-white' : '')} to="/auctions">Marketplace</NavLink>
             <NavLink className={nav} to="/auctions?status=OPEN">Live now</NavLink>
             {user?.roles.includes('SELLER') && <NavLink className={nav} to="/seller">Sell</NavLink>}
-            {user?.roles.includes('ADMIN') && <NavLink className={nav} to="/admin">Admin</NavLink>}
+            {user?.roles.includes('ADMIN') && (
+              <NavLink
+                className={({ isActive }) =>
+                  `px-3 py-1.5 rounded-lg text-xs font-extrabold flex items-center gap-1.5 border transition ${
+                    isActive
+                      ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 shadow-sm shadow-rose-950'
+                      : 'text-rose-400 border-rose-500/30 hover:bg-rose-500/10'
+                  }`
+                }
+                to="/admin"
+              >
+                <span>🛡️ Admin</span>
+              </NavLink>
+            )}
           </nav>
           {user ? (
             <div className="flex items-center gap-2">

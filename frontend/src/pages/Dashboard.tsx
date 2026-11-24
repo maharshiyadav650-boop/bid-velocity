@@ -24,8 +24,31 @@ export default function Dashboard() {
 
   return (
     <main className="max-w-6xl mx-auto px-5 py-8">
-      <h1 className="text-2xl font-extrabold m-0">{greeting}, {user.firstName}</h1>
-      <p className="text-slate-500 text-sm mt-1 mb-6">Here's what's happening with your auctions.</p>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-extrabold m-0">{greeting}, {user.firstName}</h1>
+            <div className="flex items-center gap-1">
+              {user.roles.map(r => (
+                <span key={r} className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                  r === 'ADMIN' ? 'bg-rose-500/20 text-rose-300 border-rose-500/40' :
+                  r === 'SELLER' ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' :
+                  'bg-slate-800 text-slate-400 border-slate-700'
+                }`}>{r}</span>
+              ))}
+            </div>
+          </div>
+          <p className="text-slate-500 text-sm mt-1 mb-0">Here's what's happening with your auctions and live bids.</p>
+        </div>
+        {user.roles.includes('ADMIN') && (
+          <Link
+            to="/admin"
+            className="px-4 py-2 rounded-xl text-xs font-bold bg-rose-500/20 border border-rose-500/40 text-rose-300 hover:bg-rose-500/30 transition flex items-center gap-1.5"
+          >
+            <span>🛡️ Open Admin Console →</span>
+          </Link>
+        )}
+      </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {[
