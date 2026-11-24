@@ -25,14 +25,12 @@ export default function Login() {
   const { login } = useAuth()
   const navigate = useNavigate()
 
-  const go = async (e?: React.FormEvent, customEmail?: string, customPass?: string) => {
-    if (e) e.preventDefault()
+  const go = async (e: React.FormEvent) => {
+    e.preventDefault()
     setErr('')
     setBusy(true)
-    const eMail = customEmail || email
-    const pWord = customPass || password
     try {
-      const u = await login(eMail, pWord)
+      const u = await login(email, password)
       navigate(u.roles.includes('ADMIN') ? '/admin' : u.roles.includes('SELLER') ? '/seller' : '/auctions')
     } catch (ex) {
       setErr((ex as Error).message)
@@ -41,18 +39,12 @@ export default function Login() {
     }
   }
 
-  const fillDemo = (eMail: string, pWord: string) => {
-    setEmail(eMail)
-    setPassword(pWord)
-    go(undefined, eMail, pWord)
-  }
-
   return (
     <main className="max-w-md mx-auto px-5 py-16">
       <div className="text-center font-extrabold tracking-[.2em] text-slate-400 text-xs mb-2">BIDVELOCITY</div>
       <div className="rounded-2xl border border-line bg-panel p-7">
         <h1 className="text-xl font-extrabold m-0">Welcome back</h1>
-        <p className="text-sm text-slate-500 mt-1 mb-5">Sign in to continue</p>
+        <p className="text-sm text-slate-500 mt-1 mb-5">Sign in to your account</p>
         <form onSubmit={go} className="space-y-3">
           <div><label className="text-xs font-bold text-slate-400">Email</label>
             <input className="w-full mt-1 bg-slate-800/60 border border-line rounded-xl px-3 py-2.5 outline-none focus:border-acc text-white" type="email" value={email} onChange={e => setEmail(e.target.value)} required /></div>
@@ -61,32 +53,6 @@ export default function Login() {
           {err && <p className="text-rose-300 text-sm m-0">⛔ {err}</p>}
           <button disabled={busy} className="w-full py-2.5 rounded-xl font-extrabold bg-gradient-to-r from-acc to-acc2 text-ink disabled:opacity-50">{busy ? 'Signing in…' : 'SIGN IN'}</button>
         </form>
-
-        {/* Demo Quick Logins (Public roles only: Seller & Buyer) */}
-        <div className="mt-5 pt-4 border-t border-line/60">
-          <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 text-center">
-            ⚡ Demo Accounts
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => fillDemo('seller@bidvelocity.io', 'Seller@123')}
-              className="px-2 py-2 rounded-xl text-xs font-bold bg-amber-500/10 border border-amber-500/30 text-amber-300 hover:bg-amber-500/20 transition flex flex-col items-center gap-0.5"
-            >
-              <span>🏷️ Seller Demo</span>
-              <span className="text-[9px] text-slate-400">List Auctions</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => fillDemo('riya@bidvelocity.io', 'Bidder@123')}
-              className="px-2 py-2 rounded-xl text-xs font-bold bg-sky-500/10 border border-sky-500/30 text-sky-300 hover:bg-sky-500/20 transition flex flex-col items-center gap-0.5"
-            >
-              <span>🎯 Buyer Demo</span>
-              <span className="text-[9px] text-slate-400">Place Bids</span>
-            </button>
-          </div>
-        </div>
-
         <GoogleDivider />
         <GoogleButton />
         <p className="text-sm text-slate-500 text-center mt-5 mb-0">Don't have an account? <Link to="/register" className="text-acc font-bold">Sign up</Link></p>
