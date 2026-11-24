@@ -62,26 +62,18 @@ export default function Login() {
           <button disabled={busy} className="w-full py-2.5 rounded-xl font-extrabold bg-gradient-to-r from-acc to-acc2 text-ink disabled:opacity-50">{busy ? 'Signing in…' : 'SIGN IN'}</button>
         </form>
 
-        {/* 1-Click Role Switcher */}
+        {/* Demo Quick Logins (Public roles only: Seller & Buyer) */}
         <div className="mt-5 pt-4 border-t border-line/60">
           <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 text-center">
-            ⚡ 1-Click Role Login
+            ⚡ Demo Accounts
           </div>
-          <div className="grid grid-cols-3 gap-2">
-            <button
-              type="button"
-              onClick={() => fillDemo('admin@bidvelocity.io', 'Admin@123')}
-              className="px-2 py-2 rounded-xl text-xs font-bold bg-rose-500/10 border border-rose-500/30 text-rose-300 hover:bg-rose-500/20 transition flex flex-col items-center gap-0.5"
-            >
-              <span>👑 Admin</span>
-              <span className="text-[9px] text-slate-400">Full Access</span>
-            </button>
+          <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
               onClick={() => fillDemo('seller@bidvelocity.io', 'Seller@123')}
               className="px-2 py-2 rounded-xl text-xs font-bold bg-amber-500/10 border border-amber-500/30 text-amber-300 hover:bg-amber-500/20 transition flex flex-col items-center gap-0.5"
             >
-              <span>🏷️ Seller</span>
+              <span>🏷️ Seller Demo</span>
               <span className="text-[9px] text-slate-400">List Auctions</span>
             </button>
             <button
@@ -89,7 +81,7 @@ export default function Login() {
               onClick={() => fillDemo('riya@bidvelocity.io', 'Bidder@123')}
               className="px-2 py-2 rounded-xl text-xs font-bold bg-sky-500/10 border border-sky-500/30 text-sky-300 hover:bg-sky-500/20 transition flex flex-col items-center gap-0.5"
             >
-              <span>🎯 Buyer</span>
+              <span>🎯 Buyer Demo</span>
               <span className="text-[9px] text-slate-400">Place Bids</span>
             </button>
           </div>

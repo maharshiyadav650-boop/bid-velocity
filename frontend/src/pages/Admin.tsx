@@ -149,11 +149,11 @@ export default function Admin() {
   if (!user) {
     return (
       <main className="max-w-6xl mx-auto p-16 text-center">
-        <div className="text-4xl mb-3">🛡️</div>
-        <h2 className="text-2xl font-extrabold mb-2">Administrator Access Required</h2>
-        <p className="text-slate-400 mb-5">Please sign in with administrator credentials.</p>
-        <a href="#/login" className="px-5 py-2.5 rounded-xl font-bold bg-gradient-to-r from-acc to-acc2 text-ink inline-block">
-          Sign in as Admin →
+        <div className="text-4xl mb-3">🔒</div>
+        <h2 className="text-2xl font-extrabold mb-2 text-white">Restricted Area</h2>
+        <p className="text-slate-400 mb-5">Authentication required to view this resource.</p>
+        <a href="#/login" className="px-5 py-2.5 rounded-xl font-bold bg-slate-800 border border-line text-white hover:border-slate-500 inline-block text-sm">
+          Sign In →
         </a>
       </main>
     )
@@ -161,10 +161,10 @@ export default function Admin() {
 
   if (!user.roles.includes('ADMIN')) {
     return (
-      <main className="max-w-6xl mx-auto p-16 text-center text-slate-400">
-        <div className="text-4xl mb-3">🚫</div>
-        <h2 className="text-2xl font-extrabold text-white mb-2">Access Denied</h2>
-        <p>Your account ({user.email}) does not hold administrative authority.</p>
+      <main className="max-w-6xl mx-auto p-16 text-center">
+        <h1 className="text-6xl font-extrabold text-slate-700">404</h1>
+        <p className="text-slate-400 mt-2">No route: this page lives in no registered service.</p>
+        <a href="#/" className="text-acc font-bold text-sm inline-block mt-3">← Back to the arena</a>
       </main>
     )
   }
