@@ -48,7 +48,11 @@ export default function Login() {
         <form onSubmit={go} className="space-y-3">
           <div><label className="text-xs font-bold text-slate-400">Email</label>
             <input className="w-full mt-1 bg-slate-800/60 border border-line rounded-xl px-3 py-2.5 outline-none focus:border-acc text-white" type="email" value={email} onChange={e => setEmail(e.target.value)} required /></div>
-          <div><label className="text-xs font-bold text-slate-400">Password</label>
+          <div>
+            <div className="flex justify-between items-center">
+              <label className="text-xs font-bold text-slate-400">Password</label>
+              <Link to="/forgot-password" className="text-xs text-acc hover:underline font-semibold">Forgot password?</Link>
+            </div>
             <input className="w-full mt-1 bg-slate-800/60 border border-line rounded-xl px-3 py-2.5 outline-none focus:border-acc text-white" type="password" value={password} onChange={e => setPassword(e.target.value)} required /></div>
           {err && <p className="text-rose-300 text-sm m-0">⛔ {err}</p>}
           <button disabled={busy} className="w-full py-2.5 rounded-xl font-extrabold bg-gradient-to-r from-acc to-acc2 text-ink disabled:opacity-50">{busy ? 'Signing in…' : 'SIGN IN'}</button>

@@ -43,6 +43,10 @@ export const api = {
     http.post<AuthResponse>('/api/auth/register', b).then(r => r.data).catch(e => { throw err(e) }),
   login: (b: { email: string; password: string }) =>
     http.post<AuthResponse>('/api/auth/login', b).then(r => r.data).catch(e => { throw err(e) }),
+  forgotPassword: (email: string) =>
+    http.post<{ status: string; message: string; resetCode: string }>('/api/auth/forgot-password', { email }).then(r => r.data).catch(e => { throw err(e) }),
+  resetPassword: (b: { email: string; code: string; newPassword: string }) =>
+    http.post<{ status: string; message: string }>('/api/auth/reset-password', b).then(r => r.data).catch(e => { throw err(e) }),
   me: () => http.get<User>('/api/users/me').then(r => r.data).catch(() => null),
   becomeSeller: () => http.post<AuthResponse>('/api/users/me/seller').then(r => r.data).catch(e => { throw err(e) }),
 
@@ -64,6 +68,8 @@ export const api = {
   // Admin APIs
   adminStats: () => http.get<AdminStats>('/api/admin/stats').then(r => r.data).catch(e => { throw err(e) }),
   adminUsers: () => http.get<User[]>('/api/admin/users').then(r => r.data).catch(e => { throw err(e) }),
+  adminCreateUser: (b: { firstName: string; lastName: string; email: string; password: string; roles: string[] }) =>
+    http.post<User>('/api/admin/users', b).then(r => r.data).catch(e => { throw err(e) }),
   adminSetStatus: (id: number, status: 'ACTIVE' | 'SUSPENDED') => http.patch<User>(`/api/admin/users/${id}/status`, { status }).then(r => r.data).catch(e => { throw err(e) }),
   adminSetRoles: (id: number, roles: string[]) => http.patch<User>(`/api/admin/users/${id}/roles`, { roles }).then(r => r.data).catch(e => { throw err(e) }),
   adminRecentBids: (size = 50) => http.get<AdminBid[]>('/api/admin/bids', { params: { size } }).then(r => r.data).catch(() => []),

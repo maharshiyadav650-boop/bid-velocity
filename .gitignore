@@ -54,3 +54,8 @@ coverage/
 .neon
 __pycache__/
 *.log
+
+# Scripts & temporary tools
+scripts/
+test-neon.js
+package-lock.json

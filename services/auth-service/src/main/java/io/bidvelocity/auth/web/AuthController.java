@@ -69,4 +69,38 @@ class AuthController {
         List<String> roleStrings = list.stream().map(String::valueOf).toList();
         return auth.setRoles(id, roleStrings, admin.id());
     }
+
+    @PostMapping("/auth/forgot-password")
+    AuthService.ForgotPasswordResponse forgotPassword(@RequestBody Map<String, String> body) {
+        String email = body.get("email");
+        if (email == null || email.isBlank()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "email is required");
+        }
+        return auth.requestPasswordReset(email);
+    }
+
+    @PostMapping("/auth/reset-password")
+    AuthService.ResetPasswordResponse resetPassword(@RequestBody Map<String, String> body) {
+        String email = body.get("email");
+        String code = body.get("code");
+        String newPassword = body.get("newPassword");
+        if (email == null || code == null || newPassword == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "email, code and newPassword are required");
+        }
+        return auth.resetPassword(email, code, newPassword);
+    }
+
+    public record AdminCreateUserRequest(
+            @jakarta.validation.constraints.NotBlank String firstName,
+            @jakarta.validation.constraints.NotBlank String lastName,
+            @jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Email String email,
+            @jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(min = 8) String password,
+            List<String> roles
+    ) {}
+
+    @PostMapping("/admin/users")
+    @PreAuthorize("hasAuthority('ADMIN')")
+    UserDto createUser(@Valid @RequestBody AdminCreateUserRequest r) {
+        return auth.createUserByAdmin(r.firstName(), r.lastName(), r.email(), r.password(), r.roles());
+    }
 }

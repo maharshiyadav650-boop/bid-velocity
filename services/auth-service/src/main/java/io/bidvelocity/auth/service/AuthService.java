@@ -35,6 +35,80 @@ public class AuthService {
     private final RefreshReuseGuard reuseGuard;
     private final SecureRandom random = new SecureRandom();
 
+    public record ForgotPasswordResponse(String status, String message, String resetCode) {}
+    public record ResetPasswordResponse(String status, String message) {}
+
+    private record ResetCode(String email, String code, Instant expiresAt) {}
+    private final java.util.concurrent.ConcurrentHashMap<String, ResetCode> resetCodes = new java.util.concurrent.ConcurrentHashMap<>();
+
+    public ForgotPasswordResponse requestPasswordReset(String email) {
+        String clean = email.trim().toLowerCase();
+        User u = users.findByEmailIgnoreCase(clean)
+                .orElseThrow(() -> new ApiException(org.springframework.http.HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "No registered account found with that email"));
+        if (!"ACTIVE".equals(u.getStatus())) {
+            throw ApiException.suspended();
+        }
+        String code = String.format("%06d", random.nextInt(1_000_000));
+        resetCodes.put(clean, new ResetCode(clean, code, Instant.now().plus(Duration.ofMinutes(15))));
+        return new ForgotPasswordResponse("CODE_SENT", "A 6-digit password reset code has been generated.", code);
+    }
+
+    @Transactional
+    public ResetPasswordResponse resetPassword(String email, String code, String newPassword) {
+        String clean = email.trim().toLowerCase();
+        ResetCode rc = resetCodes.get(clean);
+        if (rc == null || !rc.code().equals(code.trim())) {
+            throw new ApiException(org.springframework.http.HttpStatus.BAD_REQUEST, "INVALID_CODE", "Invalid or expired reset code");
+        }
+        if (Instant.now().isAfter(rc.expiresAt())) {
+            resetCodes.remove(clean);
+            throw new ApiException(org.springframework.http.HttpStatus.BAD_REQUEST, "CODE_EXPIRED", "Reset code has expired. Please request a new one.");
+        }
+        if (newPassword == null || newPassword.length() < 8) {
+            throw new ApiException(org.springframework.http.HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "Password must be at least 8 characters");
+        }
+        User u = users.findByEmailIgnoreCase(clean)
+                .orElseThrow(() -> new ApiException(org.springframework.http.HttpStatus.NOT_FOUND, "USER_NOT_FOUND", "User not found"));
+        u.setPasswordHash(encoder.encode(newPassword));
+        users.save(u);
+        refreshTokens.revokeAllForUser(u.getId());
+        resetCodes.remove(clean);
+        return new ResetPasswordResponse("PASSWORD_RESET_SUCCESS", "Your password has been successfully reset. You can now log in.");
+    }
+
+    @Transactional
+    public UserDto createUserByAdmin(String firstName, String lastName, String email, String password, List<String> roleList) {
+        String cleanEmail = email.trim().toLowerCase();
+        if (users.findByEmailIgnoreCase(cleanEmail).isPresent()) {
+            throw ApiException.duplicateEmail();
+        }
+        if (password == null || password.length() < 8) {
+            throw new ApiException(org.springframework.http.HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "Password must be at least 8 characters");
+        }
+        User u = new User();
+        u.setEmail(cleanEmail);
+        u.setFirstName(firstName.trim());
+        u.setLastName(lastName.trim());
+        u.setPasswordHash(encoder.encode(password));
+        u.setProvider("LOCAL");
+        u.setStatus("ACTIVE");
+        List<String> wanted = (roleList != null && !roleList.isEmpty()) ? roleList : List.of("USER");
+        Set<Role> assigned = wanted.stream()
+                .map(String::trim)
+                .map(String::toUpperCase)
+                .filter(name -> List.of("USER", "SELLER", "ADMIN").contains(name))
+                .map(n -> roles.findByName(n).orElseThrow(() -> new IllegalStateException("role missing: " + n)))
+                .collect(java.util.stream.Collectors.toSet());
+        if (assigned.isEmpty()) assigned.add(roles.findByName("USER").orElseThrow());
+        if (assigned.stream().anyMatch(r -> "ADMIN".equals(r.getName()))) {
+            roles.findByName("SELLER").ifPresent(assigned::add);
+        }
+        roles.findByName("USER").ifPresent(assigned::add);
+        u.setRoles(assigned);
+        users.save(u);
+        return toDto(u);
+    }
+
     public AuthService(UserRepository users, RoleRepository roles, RefreshTokenRepository refreshTokens,
                        PasswordEncoder encoder, JwtService jwt, RefreshReuseGuard reuseGuard) {
         this.users = users; this.roles = roles; this.refreshTokens = refreshTokens;

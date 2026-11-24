@@ -88,8 +88,7 @@ public class BidService {
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "AUCTION_NOT_FOUND", "Auction runtime vanished"));
         boolean seller = r.getSellerId().equals(bidderId);
         boolean admin = roles.contains("ADMIN");
-        if (admin) throw new ApiException(HttpStatus.FORBIDDEN, "ADMIN_BID_FORBIDDEN", "Admin accounts may not bid");
-        if (seller) throw new ApiException(HttpStatus.FORBIDDEN, "SELLER_BID_FORBIDDEN", "The seller cannot bid on their own auction");
+        if (seller && !admin) throw new ApiException(HttpStatus.FORBIDDEN, "SELLER_BID_FORBIDDEN", "The seller cannot bid on their own auction");
         if ("SEALED".equals(r.getStatus())) throw new ApiException(HttpStatus.CONFLICT, "AUCTION_CLOSED", "Auction is sealed for settlement");
         if (!("LIVE".equals(r.getStatus()) || "ENDING".equals(r.getStatus())))
             throw new ApiException(HttpStatus.CONFLICT, "AUCTION_NOT_LIVE", "Bids are only accepted while the auction is LIVE (auction " + r.getStatus() + ")");

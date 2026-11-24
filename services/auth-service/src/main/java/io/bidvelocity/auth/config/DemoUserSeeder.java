@@ -37,21 +37,24 @@ public class DemoUserSeeder implements CommandLineRunner {
     @Transactional
     public void run(String... args) {
         if (users.count() > 0) return;
-        users.save(user("admin@bidvelocity.io", "Aarav", "Admin", "Admin@123", "ADMIN"));
-        users.save(user("seller@bidvelocity.io", "Kavya", "Collections", "Seller@123", "SELLER"));
-        users.save(user("meera@bidvelocity.io", "Meera", "Emporium", "Seller@123", "SELLER"));
+        users.save(user("admin@bidvelocity.io", "Admin", "", "Admin@123", "ADMIN", "SELLER", "USER"));
+        users.save(user("seller@bidvelocity.io", "Kavya", "Collections", "Seller@123", "SELLER", "USER"));
+        users.save(user("meera@bidvelocity.io", "Meera", "Emporium", "Seller@123", "SELLER", "USER"));
         users.save(user("riya@bidvelocity.io", "Riya", "Sharma", "Bidder@123", "USER"));
         users.save(user("vikram@bidvelocity.io", "Vikram", "Nair", "Bidder@123", "USER"));
         users.save(user("arjun@bidvelocity.io", "Arjun", "Rao", "Bidder@123", "USER"));
         log.info("demo users seeded (development-only credentials, see README)");
     }
 
-    private User user(String email, String first, String last, String rawPw, String role) {
+    private User user(String email, String first, String last, String rawPw, String... roleNames) {
         User u = new User();
         u.setEmail(email); u.setFirstName(first); u.setLastName(last);
         u.setPasswordHash(encoder.encode(rawPw)); // BCrypt — never plaintext, even for demos
         u.setProvider("LOCAL"); u.setStatus("ACTIVE");
-        u.setRoles(Set.of(roles.findByName(role).orElseGet(() -> roles.save(new Role(role)))));
+        java.util.Set<Role> assigned = java.util.Arrays.stream(roleNames)
+                .map(role -> roles.findByName(role).orElseGet(() -> roles.save(new Role(role))))
+                .collect(java.util.stream.Collectors.toSet());
+        u.setRoles(assigned);
         return u;
     }
 }

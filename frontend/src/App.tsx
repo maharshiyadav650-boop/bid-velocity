@@ -11,6 +11,7 @@ import MyBids from './pages/MyBids'
 import Payments from './pages/Payments'
 import Seller from './pages/Seller'
 import Admin from './pages/Admin'
+import ForgotPassword from './pages/ForgotPassword'
 import AuthCallback from './pages/AuthCallback'
 
 const nav = 'px-3 py-2 rounded-lg text-sm font-semibold text-slate-400 hover:text-white hover:bg-slate-800/60'
@@ -31,7 +32,7 @@ export default function App() {
           <nav className="flex-1 flex items-center gap-1">
             <NavLink className={({ isActive }) => nav + (isActive ? ' bg-slate-800 text-white' : '')} to="/auctions">Marketplace</NavLink>
             <NavLink className={nav} to="/auctions?status=OPEN">Live now</NavLink>
-            {user?.roles.includes('SELLER') && <NavLink className={nav} to="/seller">Sell</NavLink>}
+            {user && <NavLink className={nav} to="/seller">Sell</NavLink>}
             {user?.roles.includes('ADMIN') && (
               <NavLink
                 className={({ isActive }) =>
@@ -49,7 +50,7 @@ export default function App() {
           </nav>
           {user ? (
             <div className="flex items-center gap-2">
-              <NavLink className={nav} to="/dashboard">{user.firstName.split(' ')[0]}</NavLink>
+              <NavLink className={nav} to="/dashboard">{user.roles.includes('ADMIN') ? 'Admin' : (user.firstName ? user.firstName.split(' ')[0] : 'User')}</NavLink>
               <NavLink className={nav} to="/bids">Bids</NavLink>
               <NavLink className={nav} to="/payments">Payments</NavLink>
               <button className="text-sm text-slate-400 hover:text-white" onClick={() => { logout(); navigate('/') }}>Sign out</button>
@@ -71,6 +72,7 @@ export default function App() {
           <Route path="/auctions" element={<Auctions />} />
           <Route path="/auction/:id" element={<AuctionDetail />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/register" element={<Register />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/bids" element={<MyBids />} />

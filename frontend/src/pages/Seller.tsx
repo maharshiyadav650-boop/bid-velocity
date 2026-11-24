@@ -45,7 +45,7 @@ export default function Seller() {
         startingPrice: Number(f.startingPrice), minIncrement: Number(f.minIncrement),
         reservePrice: f.reservePrice ? Number(f.reservePrice) : null,
         startTime: new Date(f.startTime).toISOString(), endTime: new Date(f.endTime).toISOString(),
-        antiSnipingEnabled: f.antiSnipe, extensionWindowSecs: Number(f.extensionWindowSecs), maxExtensions: Number(f.maxExtensions),
+        antiSnipingEnabled: f.antiSnipe, extensionWindowSeconds: Number(f.extensionWindowSecs), maxExtensions: Number(f.maxExtensions),
       })
       qc.invalidateQueries({ queryKey: ['myauctions'] }); setF(s => ({ ...s, title: '', description: '' }))
     } catch (ex) { setErr((ex as Error).message) }

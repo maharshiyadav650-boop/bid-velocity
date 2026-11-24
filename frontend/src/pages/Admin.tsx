@@ -1,22 +1,35 @@
 import { useState, useMemo } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, money, API_BASE } from '../api'
+import { api, money, uuid } from '../api'
 import { useAuth } from '../auth'
 import type { AdminStats, AdminBid, Auction, Payment, User } from '../types'
 
 export default function Admin() {
   const user = useAuth(s => s.user)
   const qc = useQueryClient()
-  const [tab, setTab] = useState<'stats' | 'users' | 'auctions' | 'bids' | 'payments'>('users')
+  const [tab, setTab] = useState<'users' | 'auctions' | 'bids' | 'payments'>('users')
   const [userSearch, setUserSearch] = useState('')
   const [userRoleFilter, setUserRoleFilter] = useState<'ALL' | 'ADMIN' | 'SELLER' | 'USER'>('ALL')
   const [auctionStatusFilter, setAuctionStatusFilter] = useState<'ALL' | 'LIVE' | 'SCHEDULED' | 'CLOSED' | 'CANCELLED'>('ALL')
   const [err, setErr] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
 
+  // Modals
+  const [showCreateUser, setShowCreateUser] = useState(false)
+  const [showCreateAuction, setShowCreateAuction] = useState(false)
+  const [showPlaceBid, setShowPlaceBid] = useState(false)
+
+  // Form states
+  const [newUser, setNewUser] = useState({ firstName: '', lastName: '', email: '', password: '', role: 'USER' })
+  const [newAuction, setNewAuction] = useState({
+    title: '', description: '', category: 'Electronics', emoji: '⚡',
+    startingPrice: '500', reservePrice: '', minIncrement: '50', durationMinutes: '120'
+  })
+  const [testBid, setTestBid] = useState({ auctionId: '', amount: '' })
+
   const notify = (msg: string) => {
     setSuccessMsg(msg)
-    setTimeout(() => setSuccessMsg(''), 4000)
+    setTimeout(() => setSuccessMsg(''), 4500)
   }
 
   // Admin Data Queries
@@ -84,7 +97,78 @@ export default function Admin() {
       qc.invalidateQueries({ queryKey: ['admin-users'] })
       qc.invalidateQueries({ queryKey: ['admin-stats'] })
       setErr('')
-      notify(`User #${vars.id} roles updated`)
+      notify(`User #${vars.id} roles updated successfully`)
+    },
+    onError: (e: Error) => setErr(e.message),
+  })
+
+  const createUserMutation = useMutation({
+    mutationFn: async (data: typeof newUser) => {
+      return api.adminCreateUser({
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        password: data.password,
+        roles: [data.role],
+      })
+    },
+    onSuccess: (created) => {
+      qc.invalidateQueries({ queryKey: ['admin-users'] })
+      qc.invalidateQueries({ queryKey: ['admin-stats'] })
+      setShowCreateUser(false)
+      setNewUser({ firstName: '', lastName: '', email: '', password: '', role: 'USER' })
+      notify(`User ${created.email} created successfully`)
+    },
+    onError: (e: Error) => setErr(e.message),
+  })
+
+  const createAuctionMutation = useMutation({
+    mutationFn: async (f: typeof newAuction) => {
+      const start = new Date()
+      const end = new Date(Date.now() + Number(f.durationMinutes) * 60 * 1000)
+      return api.createAuction({
+        title: f.title,
+        description: f.description || `Platform clearance listing for ${f.title}`,
+        category: f.category,
+        emoji: f.emoji || '⚡',
+        startingPrice: Number(f.startingPrice),
+        minIncrement: Number(f.minIncrement || 50),
+        reservePrice: f.reservePrice ? Number(f.reservePrice) : null,
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
+        antiSnipingEnabled: true,
+        extensionWindowSeconds: 30,
+        maxExtensions: 3,
+      })
+    },
+    onSuccess: (auc) => {
+      qc.invalidateQueries({ queryKey: ['admin-auctions'] })
+      qc.invalidateQueries({ queryKey: ['admin-stats'] })
+      setShowCreateAuction(false)
+      setNewAuction({
+        title: '', description: '', category: 'Electronics', emoji: '⚡',
+        startingPrice: '500', reservePrice: '', minIncrement: '50', durationMinutes: '120'
+      })
+      notify(`Auction "${auc.title}" launched successfully!`)
+    },
+    onError: (e: Error) => setErr(e.message),
+  })
+
+  const placeBidMutation = useMutation({
+    mutationFn: async ({ auctionId, amount }: { auctionId: number; amount: number }) => {
+      return api.placeBid({
+        auctionId,
+        amount,
+        idempotencyKey: uuid(),
+      })
+    },
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['admin-bids'] })
+      qc.invalidateQueries({ queryKey: ['admin-auctions'] })
+      qc.invalidateQueries({ queryKey: ['admin-stats'] })
+      setShowPlaceBid(false)
+      setTestBid({ auctionId: '', amount: '' })
+      notify(`Bid placed: ${money(res.bid.amount)} on Auction #${res.bid.auctionId}`)
     },
     onError: (e: Error) => setErr(e.message),
   })
@@ -195,18 +279,21 @@ export default function Admin() {
         <div>
           <div className="flex items-center gap-2">
             <span className="text-2xl">🛡️</span>
-            <h1 className="text-2xl font-extrabold m-0 tracking-tight">Admin & Operations Console</h1>
+            <h1 className="text-2xl font-extrabold m-0 tracking-tight text-white">Admin & Operations Console</h1>
             <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
               Superadmin
             </span>
           </div>
           <p className="text-sm text-slate-400 mt-1 mb-0">
-            Platform governance, role assignment, auction clearance, live bidding surveillance & financial settlements.
+            Platform governance, user management, auction launching & clearance, live bidding surveillance.
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => qc.invalidateQueries()}
+            onClick={() => {
+              qc.invalidateQueries()
+              notify('Platform data refreshed')
+            }}
             className="px-3.5 py-2 text-xs font-bold rounded-xl bg-slate-800 border border-line text-slate-300 hover:text-white hover:border-slate-500 transition flex items-center gap-1.5"
           >
             <span>🔄</span> Refresh Platform
@@ -314,21 +401,29 @@ export default function Admin() {
                 className="w-full bg-slate-800/60 border border-line rounded-xl px-3 py-1.5 text-sm outline-none focus:border-acc text-white"
               />
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-bold text-slate-400 mr-1">Role:</span>
-              {(['ALL', 'ADMIN', 'SELLER', 'USER'] as const).map(r => (
-                <button
-                  key={r}
-                  onClick={() => setUserRoleFilter(r)}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold border transition ${
-                    userRoleFilter === r
-                      ? 'bg-acc/20 border-acc text-white'
-                      : 'border-line text-slate-400 hover:text-white'
-                  }`}
-                >
-                  {r}
-                </button>
-              ))}
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-bold text-slate-400 mr-1">Role:</span>
+                {(['ALL', 'ADMIN', 'SELLER', 'USER'] as const).map(r => (
+                  <button
+                    key={r}
+                    onClick={() => setUserRoleFilter(r)}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold border transition ${
+                      userRoleFilter === r
+                        ? 'bg-acc/20 border-acc text-white'
+                        : 'border-line text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {r}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => setShowCreateUser(true)}
+                className="px-3.5 py-1.5 rounded-xl font-bold bg-gradient-to-r from-acc to-acc2 text-ink text-xs flex items-center gap-1 shadow-sm hover:opacity-90 transition"
+              >
+                <span>➕</span> Create User
+              </button>
             </div>
           </div>
 
@@ -362,11 +457,11 @@ export default function Admin() {
                           <td className={td}>
                             <div className="flex items-center gap-2.5">
                               <div className="w-7 h-7 rounded-full bg-slate-700 font-bold text-xs grid place-items-center text-slate-200">
-                                {u.firstName.charAt(0).toUpperCase()}
+                                {u.firstName ? u.firstName.charAt(0).toUpperCase() : 'U'}
                               </div>
                               <div>
                                 <div className="font-bold text-white flex items-center gap-1.5">
-                                  <span>{u.firstName} {u.lastName}</span>
+                                  <span>{u.firstName || 'User'} {u.lastName}</span>
                                   {isMe && <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-700 text-slate-300">You</span>}
                                 </div>
                                 <div className="text-[11px] text-slate-500">ID: #{u.id}</div>
@@ -443,21 +538,29 @@ export default function Admin() {
       {/* Tab 2: Auction Moderation */}
       {tab === 'auctions' && (
         <section className="space-y-4">
-          <div className="flex flex-wrap items-center gap-2 bg-panel p-3.5 rounded-2xl border border-line">
-            <span className="text-xs font-bold text-slate-400 mr-2">Filter status:</span>
-            {(['ALL', 'LIVE', 'SCHEDULED', 'CLOSED', 'CANCELLED'] as const).map(s => (
-              <button
-                key={s}
-                onClick={() => setAuctionStatusFilter(s)}
-                className={`px-3 py-1 rounded-lg text-xs font-bold border transition ${
-                  auctionStatusFilter === s
-                    ? 'bg-acc/20 border-acc text-white'
-                    : 'border-line text-slate-400 hover:text-white'
-                }`}
-              >
-                {s}
-              </button>
-            ))}
+          <div className="flex flex-wrap items-center justify-between gap-3 bg-panel p-3.5 rounded-2xl border border-line">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-400 mr-2">Filter status:</span>
+              {(['ALL', 'LIVE', 'SCHEDULED', 'CLOSED', 'CANCELLED'] as const).map(s => (
+                <button
+                  key={s}
+                  onClick={() => setAuctionStatusFilter(s)}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold border transition ${
+                    auctionStatusFilter === s
+                      ? 'bg-acc/20 border-acc text-white'
+                      : 'border-line text-slate-400 hover:text-white'
+                  }`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setShowCreateAuction(true)}
+              className="px-3.5 py-1.5 rounded-xl font-bold bg-gradient-to-r from-acc to-acc2 text-ink text-xs flex items-center gap-1 shadow-sm hover:opacity-90 transition"
+            >
+              <span>➕</span> Launch Auction
+            </button>
           </div>
 
           <div className="rounded-2xl border border-line bg-panel overflow-hidden">
@@ -536,6 +639,12 @@ export default function Admin() {
                                   🛑 Cancel
                                 </button>
                               )}
+                              <a
+                                href={`#/auction/${a.id}`}
+                                className="px-2.5 py-1 rounded-lg text-xs font-bold text-slate-300 border border-line hover:border-slate-500 transition"
+                              >
+                                View ↗
+                              </a>
                             </div>
                           </td>
                         </tr>
@@ -562,7 +671,15 @@ export default function Admin() {
                 Auditing high-frequency bid placements, anti-snipe triggers, and idempotency checks.
               </p>
             </div>
-            <span className="text-xs text-slate-500">Auto-refreshing every 6s</span>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-slate-500">Auto-refresh: 6s</span>
+              <button
+                onClick={() => setShowPlaceBid(true)}
+                className="px-3.5 py-1.5 rounded-xl font-bold bg-gradient-to-r from-acc to-acc2 text-ink text-xs flex items-center gap-1 shadow-sm hover:opacity-90 transition"
+              >
+                <span>🎯</span> Place Test Bid
+              </button>
+            </div>
           </div>
 
           <div className="rounded-2xl border border-line bg-panel overflow-hidden">
@@ -683,6 +800,271 @@ export default function Admin() {
         </section>
       )}
 
+      {/* MODAL 1: Create User */}
+      {showCreateUser && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-panel border border-line rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-base font-extrabold text-white">Create New Platform User</h3>
+              <button onClick={() => setShowCreateUser(false)} className="text-slate-400 hover:text-white">✕</button>
+            </div>
+            <form
+              onSubmit={e => {
+                e.preventDefault()
+                createUserMutation.mutate(newUser)
+              }}
+              className="space-y-3"
+            >
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs font-bold text-slate-400">First Name</label>
+                  <input
+                    className="w-full mt-1 bg-slate-800/60 border border-line rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-acc"
+                    value={newUser.firstName}
+                    onChange={e => setNewUser({ ...newUser, firstName: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-400">Last Name</label>
+                  <input
+                    className="w-full mt-1 bg-slate-800/60 border border-line rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-acc"
+                    value={newUser.lastName}
+                    onChange={e => setNewUser({ ...newUser, lastName: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-400">Email Address</label>
+                <input
+                  type="email"
+                  className="w-full mt-1 bg-slate-800/60 border border-line rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-acc"
+                  value={newUser.email}
+                  onChange={e => setNewUser({ ...newUser, email: e.target.value })}
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-400">Temporary Password (min 8 characters)</label>
+                <input
+                  type="password"
+                  className="w-full mt-1 bg-slate-800/60 border border-line rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-acc"
+                  value={newUser.password}
+                  onChange={e => setNewUser({ ...newUser, password: e.target.value })}
+                  required
+                  minLength={8}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-400">Primary Role</label>
+                <select
+                  className="w-full mt-1 bg-slate-800/60 border border-line rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-acc"
+                  value={newUser.role}
+                  onChange={e => setNewUser({ ...newUser, role: e.target.value })}
+                >
+                  <option value="USER">USER (Buyer)</option>
+                  <option value="SELLER">SELLER (Buyer + Seller)</option>
+                  <option value="ADMIN">ADMIN (Full Console Access)</option>
+                </select>
+              </div>
+              <div className="flex gap-2 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateUser(false)}
+                  className="w-1/2 py-2 rounded-xl text-xs font-bold bg-slate-800 border border-line text-slate-300 hover:text-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={createUserMutation.isPending}
+                  className="w-1/2 py-2 rounded-xl text-xs font-extrabold bg-gradient-to-r from-acc to-acc2 text-ink disabled:opacity-50"
+                >
+                  {createUserMutation.isPending ? 'Creating…' : 'Create User'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: Create Auction */}
+      {showCreateAuction && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-panel border border-line rounded-2xl max-w-lg w-full p-6 shadow-2xl">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-base font-extrabold text-white">Launch New Live Auction</h3>
+              <button onClick={() => setShowCreateAuction(false)} className="text-slate-400 hover:text-white">✕</button>
+            </div>
+            <form
+              onSubmit={e => {
+                e.preventDefault()
+                createAuctionMutation.mutate(newAuction)
+              }}
+              className="space-y-3"
+            >
+              <div>
+                <label className="text-xs font-bold text-slate-400">Auction Title</label>
+                <input
+                  className="w-full mt-1 bg-slate-800/60 border border-line rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-acc"
+                  placeholder="e.g. Vintage Rolex Submariner"
+                  value={newAuction.title}
+                  onChange={e => setNewAuction({ ...newAuction, title: e.target.value })}
+                  required
+                  minLength={4}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs font-bold text-slate-400">Category</label>
+                  <select
+                    className="w-full mt-1 bg-slate-800/60 border border-line rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-acc"
+                    value={newAuction.category}
+                    onChange={e => setNewAuction({ ...newAuction, category: e.target.value })}
+                  >
+                    {['Electronics', 'Collectibles', 'Art', 'Vehicles', 'Fashion', 'Home', 'Gadgets', 'Luxury'].map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-400">Emoji Icon</label>
+                  <input
+                    className="w-full mt-1 bg-slate-800/60 border border-line rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-acc"
+                    value={newAuction.emoji}
+                    onChange={e => setNewAuction({ ...newAuction, emoji: e.target.value })}
+                    maxLength={4}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="text-xs font-bold text-slate-400">Starting Price ₹</label>
+                  <input
+                    type="number"
+                    min="1"
+                    className="w-full mt-1 bg-slate-800/60 border border-line rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-acc"
+                    value={newAuction.startingPrice}
+                    onChange={e => setNewAuction({ ...newAuction, startingPrice: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-400">Reserve ₹ (opt)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="None"
+                    className="w-full mt-1 bg-slate-800/60 border border-line rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-acc"
+                    value={newAuction.reservePrice}
+                    onChange={e => setNewAuction({ ...newAuction, reservePrice: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-400">Duration (mins)</label>
+                  <input
+                    type="number"
+                    min="5"
+                    max="1440"
+                    className="w-full mt-1 bg-slate-800/60 border border-line rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-acc"
+                    value={newAuction.durationMinutes}
+                    onChange={e => setNewAuction({ ...newAuction, durationMinutes: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateAuction(false)}
+                  className="w-1/2 py-2 rounded-xl text-xs font-bold bg-slate-800 border border-line text-slate-300 hover:text-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={createAuctionMutation.isPending}
+                  className="w-1/2 py-2 rounded-xl text-xs font-extrabold bg-gradient-to-r from-acc to-acc2 text-ink disabled:opacity-50"
+                >
+                  {createAuctionMutation.isPending ? 'Launching…' : 'Launch Auction'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: Place Test Bid */}
+      {showPlaceBid && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-panel border border-line rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-base font-extrabold text-white">Place Live Test Bid</h3>
+              <button onClick={() => setShowPlaceBid(false)} className="text-slate-400 hover:text-white">✕</button>
+            </div>
+            <form
+              onSubmit={e => {
+                e.preventDefault()
+                placeBidMutation.mutate({
+                  auctionId: Number(testBid.auctionId),
+                  amount: Number(testBid.amount),
+                })
+              }}
+              className="space-y-3"
+            >
+              <div>
+                <label className="text-xs font-bold text-slate-400">Target Auction</label>
+                <select
+                  className="w-full mt-1 bg-slate-800/60 border border-line rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-acc"
+                  value={testBid.auctionId}
+                  onChange={e => {
+                    const id = e.target.value
+                    const found = (auctionsQuery.data ?? []).find(a => String(a.id) === id)
+                    const min = found ? (found.currentPrice + found.minIncrement) : '100'
+                    setTestBid({ auctionId: id, amount: String(min) })
+                  }}
+                  required
+                >
+                  <option value="">Select an auction…</option>
+                  {(auctionsQuery.data ?? []).map(a => (
+                    <option key={a.id} value={a.id}>
+                      #{a.id} - {a.title} ({money(a.currentPrice)}, {a.status})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-400">Bid Amount ₹</label>
+                <input
+                  type="number"
+                  min="1"
+                  className="w-full mt-1 bg-slate-800/60 border border-line rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-acc"
+                  value={testBid.amount}
+                  onChange={e => setTestBid({ ...testBid, amount: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="flex gap-2 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setShowPlaceBid(false)}
+                  className="w-1/2 py-2 rounded-xl text-xs font-bold bg-slate-800 border border-line text-slate-300 hover:text-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={placeBidMutation.isPending || !testBid.auctionId}
+                  className="w-1/2 py-2 rounded-xl text-xs font-extrabold bg-gradient-to-r from-acc to-acc2 text-ink disabled:opacity-50"
+                >
+                  {placeBidMutation.isPending ? 'Submitting…' : 'Submit Bid'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </main>
   )
 }
