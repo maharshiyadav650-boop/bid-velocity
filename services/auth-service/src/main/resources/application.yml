@@ -33,6 +33,21 @@ spring:
             client-secret: ${GOOGLE_CLIENT_SECRET:not-configured}
             scope: [openid, email, profile]
             redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+  mail:
+    host: ${SPRING_MAIL_HOST:${MAIL_HOST:smtp.gmail.com}}
+    port: ${SPRING_MAIL_PORT:${MAIL_PORT:587}}
+    username: ${SPRING_MAIL_USERNAME:${MAIL_USERNAME:}}
+    password: ${SPRING_MAIL_PASSWORD:${MAIL_PASSWORD:}}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          connectiontimeout: 7000
+          timeout: 7000
+          writetimeout: 7000
 
 eureka:
   client:
@@ -56,6 +71,9 @@ management:
     web:
       exposure:
         include: health,info
+  health:
+    mail:
+      enabled: false
 
 logging:
   pattern:

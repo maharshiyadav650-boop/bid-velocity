@@ -36,11 +36,15 @@ public class AuthService {
     private final EmailService emailService;
     private final SecureRandom random = new SecureRandom();
 
-    public record ForgotPasswordResponse(String status, String message, String maskedEmail) {}
-    public record ResetPasswordResponse(String status, String message) {}
+    public record ForgotPasswordResponse(String status, String message, String maskedEmail) {
+    }
+
+    public record ResetPasswordResponse(String status, String message) {
+    }
 
     public static String maskEmail(String email) {
-        if (email == null || !email.contains("@")) return email;
+        if (email == null || !email.contains("@"))
+            return email;
         String[] parts = email.split("@", 2);
         String name = parts[0];
         String domain = parts[1];
@@ -72,7 +76,8 @@ public class AuthService {
                     "Unable to dispatch verification email via SMTP. Please ensure MAIL_USERNAME and MAIL_PASSWORD are configured in the server environment.");
         }
         String masked = maskEmail(clean);
-        String msg = "A 6-digit verification code has been dispatched to your email (" + masked + "). Please check your inbox.";
+        String msg = "A 6-digit verification code has been dispatched to your email (" + masked
+                + "). Please check your inbox.";
         return new ForgotPasswordResponse("CODE_SENT", msg, masked);
     }
 
@@ -141,10 +146,14 @@ public class AuthService {
     }
 
     public AuthService(UserRepository users, RoleRepository roles, RefreshTokenRepository refreshTokens,
-                       PasswordEncoder encoder, JwtService jwt, RefreshReuseGuard reuseGuard,
-                       @org.springframework.beans.factory.annotation.Autowired(required = false) EmailService emailService) {
-        this.users = users; this.roles = roles; this.refreshTokens = refreshTokens;
-        this.encoder = encoder; this.jwt = jwt; this.reuseGuard = reuseGuard;
+            PasswordEncoder encoder, JwtService jwt, RefreshReuseGuard reuseGuard,
+            @org.springframework.beans.factory.annotation.Autowired(required = false) EmailService emailService) {
+        this.users = users;
+        this.roles = roles;
+        this.refreshTokens = refreshTokens;
+        this.encoder = encoder;
+        this.jwt = jwt;
+        this.reuseGuard = reuseGuard;
         this.emailService = emailService != null ? emailService : new EmailService(null);
     }
 
