@@ -26,6 +26,14 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'toEmail and code are required' });
   }
 
+  const domain = (toEmail.split('@')[1] || '').toLowerCase();
+  if (domain === 'bidvelocity.io' || domain === 'example.com') {
+    return res.status(400).json({
+      success: false,
+      error: 'Demo domains (@bidvelocity.io, @example.com) cannot receive external emails. Please use a valid personal email.'
+    });
+  }
+
   const user = process.env.MAIL_USERNAME;
   const pass = process.env.MAIL_PASSWORD;
 

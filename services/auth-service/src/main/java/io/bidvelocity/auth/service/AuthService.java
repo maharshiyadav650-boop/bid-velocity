@@ -67,6 +67,10 @@ public class AuthService {
         if (!"ACTIVE".equals(u.getStatus())) {
             throw ApiException.suspended();
         }
+        if (clean.endsWith("@bidvelocity.io") || clean.endsWith("@example.com")) {
+            throw new ApiException(org.springframework.http.HttpStatus.BAD_REQUEST, "DEMO_ACCOUNT_EMAIL",
+                    "Demo seed accounts (@bidvelocity.io / @example.com) have no active mailboxes. Please use a registered personal email (e.g. your Gmail) to receive verification codes.");
+        }
         String code = String.format("%06d", random.nextInt(1_000_000));
         resetCodes.put(clean, new ResetCode(clean, code, Instant.now().plus(Duration.ofMinutes(15))));
         boolean sent = emailService.sendPasswordResetEmail(clean, code);
