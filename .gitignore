@@ -1,61 +1,115 @@
-# Build
+# ==============================================================================
+# ⚡ REAL-TIME AUCTIONS: ZERO DELAY (BidVelocity) — Master .gitignore
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. Java & Maven Build Artifacts
+# ------------------------------------------------------------------------------
 target/
 *.class
 *.jar
-!.mvn/wrapper/maven-wrapper.jar
+*.war
+*.ear
+*.nar
+*.zip
+*.tar.gz
+*.rar
+*.7z
 
-# Node / frontend
+# Keep Maven Wrapper JAR
+!.mvn/wrapper/maven-wrapper.jar
+.mvn/wrapper/maven-wrapper.properties.local
+
+# ------------------------------------------------------------------------------
+# 2. Node.js & Frontend Build Outputs (React + Vite)
+# ------------------------------------------------------------------------------
 node_modules/
 dist/
+dist-ssr/
 .vite/
+.eslintcache
+*.tsbuildinfo
+vite.config.ts.timestamp*
+.npm/
+.yarn/
+package-lock.json
 
-# IDE / OS
+# ------------------------------------------------------------------------------
+# 3. Security, Secrets & Environment Files (CRITICAL: NEVER COMMIT)
+# ------------------------------------------------------------------------------
+.env
+.env.local
+.env.*.local
+*.env.local
+application-local.yml
+application-local.properties
+application-secret.properties
+*.pem
+*.jks
+*.p12
+*.key
+*.crt
+*.cert
+*.der
+
+# Keep example template for onboarding
+!.env.example
+
+# ------------------------------------------------------------------------------
+# 4. IDEs, Editors & OS Files
+# ------------------------------------------------------------------------------
 .idea/
 .vscode/
 *.iml
-.DS_Store
-Thumbs.db
-
-# Secrets & local config — NEVER commit
-.env
-.env.local
-*.env.local
-application-local.yml
-*.jks
-*.p12
-*.pem
-
-# Logs & runtime
-*.log
-logs/
-hs_err_pid*
-replay_pid*
-*.pid
-
-# Tooling temp files
-.eslintcache
-vite.config.ts.timestamp*
-*.tsbuildinfo
-cloudflared.exe
-.npm/
-.mvn/wrapper/maven-wrapper.properties.local
-
-# Test output
-test-output/
-coverage/
-
-# Vercel CLI project link
-.vercel/
-
-# IDE metadata (Eclipse / Spring Tools Suite)
+*.ipr
+*.iws
 .classpath
 .project
 .settings/
-.neon
-__pycache__/
-*.log
+*.sublime-project
+*.sublime-workspace
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
 
-# Scripts & temporary tools
-scripts/
+# ------------------------------------------------------------------------------
+# 5. Logs, Runtime & Process IDs
+# ------------------------------------------------------------------------------
+*.log
+logs/
+*.pid
+*.seed
+*.pid.lock
+hs_err_pid*
+replay_pid*
+
+# ------------------------------------------------------------------------------
+# 6. Cloud & Hosting CLI Metadata
+# ------------------------------------------------------------------------------
+.vercel/
+.render/
+.neon
+.neon/
+cloudflared.exe
+
+# ------------------------------------------------------------------------------
+# 7. Testing & Coverage Outputs
+# ------------------------------------------------------------------------------
+test-output/
+coverage/
+.nyc_output/
+
+# ------------------------------------------------------------------------------
+# 8. Python & Temporary Tooling Caches
+# ------------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+scratch/
 test-neon.js
-package-lock.json
