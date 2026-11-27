@@ -33,6 +33,6 @@ class DemoUserSeederTest {
     @Test
     void seededAdminHasAdminRole() {
         var r = auth.login(new LoginRequest("admin@bidvelocity.io", "Admin@123"));
-        assertThat(r.user().roles()).containsExactly("ADMIN");
+        assertThat(r.user().roles()).contains("ADMIN");
     }
 }

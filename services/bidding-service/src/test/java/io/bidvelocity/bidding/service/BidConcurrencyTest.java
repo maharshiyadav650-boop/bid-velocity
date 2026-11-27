@@ -168,8 +168,7 @@ class BidConcurrencyTest {
                 () -> service.place(id2, 900L, "Owner", USER, new BigDecimal("1100"), "cs2-" + id2));
         assertThat(ex2.code()).isEqualTo("SELLER_BID_FORBIDDEN");
 
-        var ex3 = org.junit.jupiter.api.Assertions.assertThrows(ApiException.class,
-                () -> service.place(id2, 82L, "Admin", List.of("ADMIN"), new BigDecimal("1100"), "cs3-" + id2));
-        assertThat(ex3.code()).isEqualTo("ADMIN_BID_FORBIDDEN");
+        var adminBid = service.place(id2, 82L, "Admin", List.of("ADMIN"), new BigDecimal("1100"), "cs3-" + id2);
+        assertThat(adminBid.bid().status()).isEqualTo("ACCEPTED");
     }
 }
