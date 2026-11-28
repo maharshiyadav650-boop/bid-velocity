@@ -16,6 +16,7 @@ Write-Host "Make sure you have Java and Maven installed and in your PATH."
 if (-not $env:DB_USERNAME) { $env:DB_USERNAME = "bvadmin" }
 if (-not $env:DB_PASSWORD) { $env:DB_PASSWORD = "trust-local-no-password" }
 if (-not $env:DB_PORT) { $env:DB_PORT = "5432" }
+$env:EUREKA_CLIENT_ENABLED = "true"
 
 # 1. Start Eureka Server
 Write-Host "Starting Eureka Server..."
